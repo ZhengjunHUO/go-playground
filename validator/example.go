@@ -4,6 +4,9 @@ import (
 	"fmt"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/go-playground/locales/en"
+        ut "github.com/go-playground/universal-translator"
+	enTrans "github.com/go-playground/validator/v10/translations/en"
 )
 
 type k8sCluster struct {
@@ -18,18 +21,46 @@ type k8sCluster struct {
 func main() {
 	vldt := validator.New()
 
-	cluster := k8sCluster{
+	english := en.New()
+	uni := ut.New(english, english)
+	trans, _ := uni.GetTranslator("en")
+
+	_ = enTrans.RegisterDefaultTranslations(vldt, trans)
+
+	clusters := []k8sCluster{
+	    k8sCluster{
+		Name:		"x",
+		Size:		0,
+		CNI:		"awsvps",
+		IsManaged:	false,
+	    },
+	    k8sCluster{
 		Name:		"huo",
 		Size:		8,
 		CNI:		"cilium",
 		IsManaged:	false,
 		IsBaremetal:	true,
 		IsOverlay:	false,
+	    },
 	}
 
-	if err := vldt.Struct(cluster); err != nil {
-		fmt.Println(err)
-	}else{
-		fmt.Println("Validation ok.")
+	for i := range clusters {
+		fmt.Printf("<Cluster %d>\n", i)
+		if err := vldt.Struct(clusters[i]); err != nil {
+			fmt.Println(interpretError(err.(validator.ValidationErrors), trans))
+		}else{
+			fmt.Println("Validation ok.")
+		}
 	}
+}
+
+func interpretError(err validator.ValidationErrors, trans ut.Translator) []error {
+	errs := []error{}
+	if err != nil {
+		for _, e := range err {
+			errs = append(errs, fmt.Errorf("%s\n", e.Translate(trans)))
+		}
+	}
+
+	return errs
 }
