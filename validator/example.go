@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/go-playground/locales/en"
@@ -11,7 +12,7 @@ import (
 )
 
 type k8sCluster struct {
-	Name		string	`validate:"required,alphanum,max=20,min=3"`
+	Name		string	`validate:"required,validateClusterName"`
 	CNI		string	`validate:"required,oneof=cilium calico flannel weave"`
 	Size		int	`validate:"required,numeric,min=1"`
 	IsManaged	bool	`validate:"omitempty"`
@@ -19,9 +20,26 @@ type k8sCluster struct {
 	IsOverlay	bool	`validate:"omitempty"`
 }
 
+// 自定义tag对应的处理逻辑
+func validateClusterName(fl validator.FieldLevel) bool {
+	clusterName := fl.Field().String()	
+
+	// 字段长度需介于3-20个字符之间
+	if len(clusterName) < 3 || len(clusterName) > 20 {
+		return false
+	}
+	
+	// 合法字段名格式为字母下划线字母xx_xxx
+	rgx, _ := regexp.Compile("[[:alpha:]]+_[[:alpha:]]+")
+
+	return rgx.MatchString(clusterName)
+}
+
 func main() {
 	// 初始化validator
 	vldt := validator.New()
+	// 关联自定义tag和其handler func
+	vldt.RegisterValidation("validateClusterName", validateClusterName)
 
 	// 初始化翻译器
 	english := en.New()
@@ -40,7 +58,7 @@ func main() {
 			IsManaged:	false,
 		},
 		k8sCluster{
-			Name:		"huo",
+			Name:		"huo_k8s",
 			Size:		8,
 			CNI:		"cilium",
 			IsManaged:	false,
