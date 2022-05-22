@@ -20,19 +20,40 @@ type k8sCluster struct {
 	IsOverlay	bool	`validate:"omitempty"`
 }
 
+var (
+	errClusterName string = "{0}必须是<字母组成的单词>_<字母组成的单词>形式"
+)
+
 // 自定义tag对应的处理逻辑
 func validateClusterName(fl validator.FieldLevel) bool {
-	clusterName := fl.Field().String()	
+	clusterName := fl.Field().String()
 
 	// 字段长度需介于3-20个字符之间
 	if len(clusterName) < 3 || len(clusterName) > 20 {
 		return false
 	}
-	
+
 	// 合法字段名格式为字母下划线字母xx_xxx
 	rgx, _ := regexp.Compile("[[:alpha:]]+_[[:alpha:]]+")
 
 	return rgx.MatchString(clusterName)
+}
+
+// 自定义tag对应的错误信息
+func addErrMsgToTag(validate *validator.Validate, trans ut.Translator, tag string, errMsg string) {
+	_ = validate.RegisterTranslation(tag, trans,
+		// 注册函数registerFn，为tag关联errMsg
+		func(trans ut.Translator) error{
+			return trans.Add(tag, errMsg, false)
+		// 翻译函数translationFn，调用T来渲染errMsg
+		}, func(trans ut.Translator, fe validator.FieldError) string {
+			// creates the translation for "key" (key, {0}, {1})
+			t, err := trans.T(tag, fe.Field(), fe.Param())
+			if err != nil {
+				return fe.(error).Error()
+			}
+			return t
+		})
 }
 
 func main() {
@@ -49,6 +70,8 @@ func main() {
 
 	// 绑定翻译器到validator
 	_ = zhTrans.RegisterDefaultTranslations(vldt, trans)
+
+	addErrMsgToTag(vldt, trans, "validateClusterName", errClusterName)
 
 	clusters := []k8sCluster{
 		k8sCluster{
