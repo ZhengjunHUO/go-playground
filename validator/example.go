@@ -5,8 +5,9 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/go-playground/locales/en"
+	"github.com/go-playground/locales/zh"
         ut "github.com/go-playground/universal-translator"
-	enTrans "github.com/go-playground/validator/v10/translations/en"
+	zhTrans "github.com/go-playground/validator/v10/translations/zh"
 )
 
 type k8sCluster struct {
@@ -19,48 +20,47 @@ type k8sCluster struct {
 }
 
 func main() {
+	// 初始化validator
 	vldt := validator.New()
 
+	// 初始化翻译器
 	english := en.New()
-	uni := ut.New(english, english)
-	trans, _ := uni.GetTranslator("en")
+	zhongwen := zh.New()
+	uni := ut.New(english, zhongwen, english)
+	trans, _ := uni.GetTranslator("zh")
 
-	_ = enTrans.RegisterDefaultTranslations(vldt, trans)
+	// 绑定翻译器到validator
+	_ = zhTrans.RegisterDefaultTranslations(vldt, trans)
 
 	clusters := []k8sCluster{
-	    k8sCluster{
-		Name:		"x",
-		Size:		0,
-		CNI:		"awsvps",
-		IsManaged:	false,
-	    },
-	    k8sCluster{
-		Name:		"huo",
-		Size:		8,
-		CNI:		"cilium",
-		IsManaged:	false,
-		IsBaremetal:	true,
-		IsOverlay:	false,
-	    },
+		k8sCluster{
+			Name:		"x",
+			Size:		0,
+			CNI:		"awsvps",
+			IsManaged:	false,
+		},
+		k8sCluster{
+			Name:		"huo",
+			Size:		8,
+			CNI:		"cilium",
+			IsManaged:	false,
+			IsBaremetal:	true,
+			IsOverlay:	false,
+		},
 	}
 
 	for i := range clusters {
 		fmt.Printf("<Cluster %d>\n", i)
+		// 检查实例是否满足struct中的定义
 		if err := vldt.Struct(clusters[i]); err != nil {
-			fmt.Println(interpretError(err.(validator.ValidationErrors), trans))
+			// 在valid返回的错误集中使用翻译器解读错误信息
+			translatedMap := err.(validator.ValidationErrors).Translate(trans)
+			// 打印错误信息
+			for k, v := range translatedMap {
+				fmt.Printf("%s: %s\n", k, v)
+			}
 		}else{
 			fmt.Println("Validation ok.")
 		}
 	}
-}
-
-func interpretError(err validator.ValidationErrors, trans ut.Translator) []error {
-	errs := []error{}
-	if err != nil {
-		for _, e := range err {
-			errs = append(errs, fmt.Errorf("%s\n", e.Translate(trans)))
-		}
-	}
-
-	return errs
 }
