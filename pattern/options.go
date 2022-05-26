@@ -1,7 +1,11 @@
-package pattern
+package main
+
+import (
+	"fmt"
+)
 
 const (
-	defaultName = "huo's k8s"
+	defaultName = "huo's_k8s"
 	defaultCNI  = "cilium"
 	defaultSize = 6
 	defaultMgmt = false
@@ -18,7 +22,7 @@ type K8sCluster struct {
 	IsOverlay	bool
 }
 
-type K8sClusterOption func(*K8sCluster) 
+type K8sClusterOption func(*K8sCluster)
 
 func K8sName(name string) K8sClusterOption {
 	return func(k *K8sCluster) {
@@ -40,7 +44,7 @@ func K8sSize(size int) K8sClusterOption {
 
 func K8sManaged(isManaged bool) K8sClusterOption {
 	return func(k *K8sCluster) {
-		k.IsManaged = isManaged 
+		k.IsManaged = isManaged
 	}
 }
 
@@ -71,4 +75,17 @@ func NewK8sCluster(kops ...K8sClusterOption) *K8sCluster {
 	}
 
 	return k8s
+}
+
+func main() {
+	k1 := NewK8sCluster()
+	k2 := NewK8sCluster(
+		K8sName("wang's_k8s"),
+		K8sCNI("calico"),
+		K8sSize(16),
+		K8sManaged(true),
+		K8sBaremetal(false),
+		K8sOverlay(true))
+
+	fmt.Println(*k1, *k2)
 }
