@@ -1,0 +1,28 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: http-server
+  namespace: demo
+spec:
+  selector:
+    matchLabels:
+      app: http-server
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: http-server
+    spec:
+      containers:
+      - name: httpd
+        image: alpine
+        env:
+          - name: WORKING_ENV
+            value: demo
+        command:
+         - sh 
+         - -c 
+         - 'while true; do echo -e "HTTP/1.0 200 OK\r\n\r\nWelcome to ${WORKING_ENV} env." | nc -l -p 8080; done'
+        ports:
+        - containerPort: 8080
