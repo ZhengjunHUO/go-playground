@@ -1,0 +1,12 @@
+syntax="proto3";
+
+package protob;
+
+option go_package = "./";
+
+message K8sInfo {
+    string name = 1;
+    string cni = 2;
+    int32 size = 3;
+    bool ismanaged = 4;
+}
