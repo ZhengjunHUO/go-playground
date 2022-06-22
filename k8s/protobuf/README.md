@@ -16,5 +16,6 @@ go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
 
 ## Compile
 ```bash
-protoc --proto_path=protob --go_out=protob protob/*.proto
+cd protob
+protoc --go_out=. --go_opt=paths=source_relative *.proto
 ```

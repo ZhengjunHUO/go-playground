@@ -2,7 +2,7 @@ syntax="proto3";
 
 package protob;
 
-option go_package = "./";
+option go_package = "github.com/ZhengjunHUO/playground/k8s/protobuf/protob";
 
 message K8sInfo {
     string name = 1;
