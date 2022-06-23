@@ -10,9 +10,13 @@ import (
 func main() {
 	k8sCluster, k8sStruct := &pf.K8SInfo{
 		Name: "huo",
-		Cni: "cilium",
 		Size: 6,
 		Ismanaged: true,
+		Cni: &pf.Cni{
+			Name: "Cilium",
+			IsOverlayed: false,
+			IsDirectRouting: true,
+		},
 	}, &pf.K8SInfo{}
 
 	// Encoding
@@ -30,5 +34,5 @@ func main() {
 		return
 	}
 
-	fmt.Printf("Deserialized: %v\n", k8sStruct)
+	fmt.Printf("Deserialized structure: %v\n", k8sStruct)
 }

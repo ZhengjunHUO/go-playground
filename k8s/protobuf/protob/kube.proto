@@ -6,7 +6,13 @@ option go_package = "github.com/ZhengjunHUO/playground/k8s/protobuf/protob";
 
 message K8sInfo {
     string name = 1;
-    string cni = 2;
-    int32 size = 3;
-    bool ismanaged = 4;
+    int32 size = 2;
+    bool ismanaged = 3;
+    Cni cni = 4;
+}
+
+message Cni {
+    string name = 1;
+    bool isOverlayed = 2;
+    bool isDirectRouting = 3;
 }
