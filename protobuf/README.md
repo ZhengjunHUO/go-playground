@@ -1,5 +1,3 @@
-## TODO: add protobuf example
-
 ## Install protoc
 ```bash
 # MacOS
@@ -18,4 +16,9 @@ go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
 ```bash
 cd protob
 protoc --go_out=. --go_opt=paths=source_relative *.proto
+```
+
+## Run sample
+```bash
+go run sample/main.go
 ```
