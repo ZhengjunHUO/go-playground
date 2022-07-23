@@ -22,3 +22,12 @@ protoc --go_out=. --go_opt=paths=source_relative *.proto
 ```bash
 go run sample/main.go
 ```
+
+## Run as server (grpc)
+```bash
+go run grpc/server/main.go
+# in another terminal
+go run grpc/client/main.go 
+```
+
+
