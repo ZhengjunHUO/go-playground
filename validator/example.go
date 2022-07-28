@@ -79,13 +79,21 @@ func validateClusterName(fl validator.FieldLevel) bool {
 	return rgx.MatchString(clusterName)
 }
 
+func (kv *k8sValidator) RegisterFuncAndMsg(tag string, funcName validator.Func, msgName string) {
+	kv.vldt.RegisterValidation(tag, funcName)
+	kv.addErrMsgToTag(tag, msgName)
+}
+
 func main() {
 	k8sVldt := Newk8sValidator()
 
 	// 对Name字段自定义handler func
-	k8sVldt.vldt.RegisterValidation("validateClusterName", validateClusterName)
+	//k8sVldt.vldt.RegisterValidation("validateClusterName", validateClusterName)
 	// 自定义错误信息
-	k8sVldt.addErrMsgToTag("validateClusterName", errClusterName)
+	//k8sVldt.addErrMsgToTag("validateClusterName", errClusterName)
+
+	// 对Name字段添加自定义的handler func和对应的错误信息
+	k8sVldt.RegisterFuncAndMsg("validateClusterName", validateClusterName, errClusterName)
 
 	clusters := []k8sCluster{
 		k8sCluster{
