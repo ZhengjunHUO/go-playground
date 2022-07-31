@@ -1,0 +1,13 @@
+#!/bin/bash
+
+case "$1" in
+	"version")
+    		echo "v0.0.1"
+		;;
+	"gopath")
+		echo "Your go path is: $GOPATH"
+		;;
+	*)
+		echo "Hello kubectl plugins from huo ~"
+		;;
+esac
