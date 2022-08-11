@@ -23,5 +23,8 @@ func main() {
 		fmt.Println("List pods under ns kube-system failed !")
 		os.Exit(1)
 	}
-	fmt.Println("List pods under ns kube-system succeeded !")
+
+	for _, po := range poList.Items {
+		fmt.Printf("Find pod[%s]\n", po.Name)
+	}
 }
