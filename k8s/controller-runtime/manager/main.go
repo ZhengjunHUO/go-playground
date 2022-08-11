@@ -3,12 +3,12 @@ package main
 import (
 	"fmt"
 	"os"
-	"context"
+	//"context"
 
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	//"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
@@ -27,9 +27,13 @@ func main() {
 
 	// Init controller, attached to the manager
 	ctlr, err := controller.New("demo-controller", mngr, controller.Options{
-		Reconciler: reconcile.Func(func(context.Context, reconcile.Request) (reconcile.Result, error) {
-			return reconcile.Result{}, nil
-		}),
+		// Method 1
+		//Reconciler: reconcile.Func(func(context.Context, reconcile.Request) (reconcile.Result, error) {
+		// 	// Implement reconcile logical here
+		//	return reconcile.Result{}, nil
+		//}),
+		// Method 2
+		Reconciler: &podReconcile{cl: mngr.GetClient()},
 	})
 	if err != nil {
 		fmt.Println("Create controller failed: ", err)
