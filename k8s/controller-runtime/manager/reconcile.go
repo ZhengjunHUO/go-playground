@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type podReconcile struct {
@@ -28,9 +29,48 @@ func (pr *podReconcile) Reconcile(ctx context.Context, req reconcile.Request) (r
 	}
 
 	if val, ok := pod.Annotations["huozj.io/animals"]; ok && val == "cat" {
-		// TO IMPLEMENT
-		fmt.Printf("Found a %s here!\n", val)
+		fmt.Printf("[INFO] Found a %s here!\n", val)
+		if err := pr.CreateRelatedSvc(ctx, pod); err != nil {
+			return reconcile.Result{}, nil
+		}
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func (pr *podReconcile) CreateRelatedSvc(ctx context.Context, pod *corev1.Pod) error {
+	if !(len(pod.Spec.Containers) > 0 && len(pod.Spec.Containers[0].Ports) > 0) {
+		return nil
+	}
+
+	svc := &corev1.Service{}
+	svcName := "svc-" + pod.Name
+	if err := pr.cl.Get(ctx, client.ObjectKey{
+		Namespace: pod.Namespace,
+		Name:      svcName,
+	}, svc); err != nil {
+		if errors.IsNotFound(err) {
+			svc = &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta {
+					Name:      svcName,
+					Namespace: pod.Namespace,
+				},
+				Spec: corev1.ServiceSpec{
+					Selector: pod.ObjectMeta.Labels,
+					Ports: []corev1.ServicePort {
+						{
+							Port: pod.Spec.Containers[0].Ports[0].ContainerPort,
+						},
+					},
+					Type: corev1.ServiceTypeNodePort,
+				},
+			}
+
+			fmt.Printf("Create service [%s] for pod [%s]\n", svcName, pod.Name)
+			return pr.cl.Create(ctx, svc)
+		}
+		return err
+	}
+
+	return nil
 }
