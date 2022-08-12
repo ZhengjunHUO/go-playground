@@ -41,8 +41,18 @@ func main() {
 	}
 	fmt.Println("Controller created.")
 
-	// Register handler to controller concerning Pod, add to the work queue
+	// Register handler to controller concerning Pod, add the pod's key to the work queue
 	if err := ctlr.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForObject{}); err != nil {
+		fmt.Println("Watch pods failed: ", err)
+		os.Exit(1)
+	}
+
+	// Register handler to controller watching the Service controlled by the pod, add the associated pod's key to the work queue (reconciler only interested in pod in this case)
+	// need to call controllerutil.SetControllerReference in the reconcile logic when dealing with the svc related to the pod
+	if err := ctlr.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForOwner{
+		OwnerType: &corev1.Pod{},
+		IsController: true,
+	}); err != nil {
 		fmt.Println("Watch pods failed: ", err)
 		os.Exit(1)
 	}
