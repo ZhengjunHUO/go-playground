@@ -11,6 +11,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 
 	corev1 "k8s.io/api/core/v1"
+	netwv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -58,6 +59,9 @@ func (sr *svcReconcile) Reconcile(ctx context.Context, req reconcile.Request) (r
 
 	if val, ok := svc.Annotations["huozj.io/animals"]; ok && val == "cat" {
 		fmt.Printf("[INFO] Found a %s in svc [%s/%s]!\n", val, svc.Namespace, svc.Name)
+		if err := sr.CreateRelatedIngress(ctx, svc); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	return reconcile.Result{}, nil
@@ -88,7 +92,7 @@ func (pr *podReconcile) CreateRelatedSvc(ctx context.Context, pod *corev1.Pod) e
 							Port: pod.Spec.Containers[0].Ports[0].ContainerPort,
 						},
 					},
-					Type: corev1.ServiceTypeNodePort,
+					Type: corev1.ServiceTypeClusterIP,
 				},
 			}
 
@@ -102,6 +106,64 @@ func (pr *podReconcile) CreateRelatedSvc(ctx context.Context, pod *corev1.Pod) e
 
 			fmt.Printf("Create service [%s] for pod [%s]\n", svcName, pod.Name)
 			return pr.cl.Create(ctx, svc)
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (sr *svcReconcile) CreateRelatedIngress(ctx context.Context, svc *corev1.Service) error {
+	if len(svc.Spec.Ports) == 0 {
+		return nil
+	}
+
+	ing := &netwv1.Ingress{}
+	ingName := "ing-" + svc.Name
+	if err := sr.cl.Get(ctx, client.ObjectKey{
+		Namespace: svc.Namespace,
+		Name:      ingName,
+	}, ing); err != nil {
+		if errors.IsNotFound(err) {
+			prefix := netwv1.PathTypePrefix
+			ing = &netwv1.Ingress{
+				ObjectMeta: metav1.ObjectMeta {
+					Name:        ingName,
+					Namespace:   svc.Namespace,
+					Annotations: map[string]string{
+						"kubernetes.io/ingress.class": "nginx",
+					},
+				},
+				Spec: netwv1.IngressSpec{
+					Rules: []netwv1.IngressRule{
+						{
+							Host: "www.huozj.io",
+							IngressRuleValue: netwv1.IngressRuleValue{
+								HTTP: &netwv1.HTTPIngressRuleValue{
+									Paths: []netwv1.HTTPIngressPath{
+										{
+											Path: "/",
+											PathType: &prefix,
+											Backend: netwv1.IngressBackend{
+												Service: &netwv1.IngressServiceBackend{
+													Name: svc.Name,
+													Port: netwv1.ServiceBackendPort{Number: svc.Spec.Ports[0].Port,},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			if err := sr.cl.Create(ctx, ing); err != nil {
+				fmt.Printf("Get an error in creating ingress [%s]: %v\n", ingName, err)
+				return err
+			}
+			fmt.Printf("Create ingress [%s] for svc [%s]\n", ingName, svc.Name)
 		}
 		return err
 	}
