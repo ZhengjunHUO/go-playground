@@ -18,6 +18,10 @@ type podReconcile struct {
 	cl client.Client
 }
 
+type svcReconcile struct {
+	cl client.Client
+}
+
 func (pr *podReconcile) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	fmt.Printf("Pod: [%s] in ns [%s]\n", req.Name, req.Namespace)
 
@@ -33,8 +37,27 @@ func (pr *podReconcile) Reconcile(ctx context.Context, req reconcile.Request) (r
 	if val, ok := pod.Annotations["huozj.io/animals"]; ok && val == "cat" {
 		fmt.Printf("[INFO] Found a %s here!\n", val)
 		if err := pr.CreateRelatedSvc(ctx, pod); err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
+	return reconcile.Result{}, nil
+}
+
+func (sr *svcReconcile) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+	fmt.Printf("Svc: [%s] in ns [%s]\n", req.Name, req.Namespace)
+
+	svc := &corev1.Service{}
+	if err := sr.cl.Get(ctx, req.NamespacedName, svc); err != nil {
+		if errors.IsNotFound(err) {
 			return reconcile.Result{}, nil
 		}
+
+		return reconcile.Result{}, fmt.Errorf("Get svc failed: %v\n", err)
+	}
+
+	if val, ok := svc.Annotations["huozj.io/animals"]; ok && val == "cat" {
+		fmt.Printf("[INFO] Found a %s in svc [%s/%s]!\n", val, svc.Namespace, svc.Name)
 	}
 
 	return reconcile.Result{}, nil
@@ -54,8 +77,9 @@ func (pr *podReconcile) CreateRelatedSvc(ctx context.Context, pod *corev1.Pod) e
 		if errors.IsNotFound(err) {
 			svc = &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta {
-					Name:      svcName,
-					Namespace: pod.Namespace,
+					Name:        svcName,
+					Namespace:   pod.Namespace,
+					Annotations: pod.ObjectMeta.Annotations,
 				},
 				Spec: corev1.ServiceSpec{
 					Selector: pod.ObjectMeta.Labels,

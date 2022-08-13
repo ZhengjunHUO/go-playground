@@ -41,6 +41,16 @@ func main() {
 	}
 	fmt.Println("Controller created.")
 
+	// Prepare 2nd controller for svc, attached to the manager
+	ctlrSvc, err := controller.New("svc-controller", mngr, controller.Options{
+		Reconciler: &svcReconcile{cl: mngr.GetClient()},
+	})
+	if err != nil {
+		fmt.Println("Create svc controller failed: ", err)
+		os.Exit(1)
+	}
+	fmt.Println("Service controller created.")
+
 	// Register handler to controller concerning Pod, add the pod's key to the work queue
 	if err := ctlr.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForObject{}); err != nil {
 		fmt.Println("Watch pods failed: ", err)
@@ -56,6 +66,13 @@ func main() {
 		fmt.Println("Watch pods failed: ", err)
 		os.Exit(1)
 	}
+
+	// Register handler to controller concerning Service, add the svc's key to the work queue
+	if err := ctlrSvc.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForObject{}); err != nil {
+		fmt.Println("Watch svc failed: ", err)
+		os.Exit(1)
+	}
+
 	fmt.Println("Handler registered, run Manager ...")
 
 	// Start manager 
