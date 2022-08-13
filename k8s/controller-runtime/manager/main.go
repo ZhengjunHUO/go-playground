@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	corev1 "k8s.io/api/core/v1"
+	netwv1 "k8s.io/api/networking/v1"
 )
 
 func main() {
@@ -63,13 +64,21 @@ func main() {
 		OwnerType: &corev1.Pod{},
 		IsController: true,
 	}); err != nil {
-		fmt.Println("Watch pods failed: ", err)
+		fmt.Println("Watch svc failed: ", err)
 		os.Exit(1)
 	}
 
 	// Register handler to controller concerning Service, add the svc's key to the work queue
 	if err := ctlrSvc.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForObject{}); err != nil {
 		fmt.Println("Watch svc failed: ", err)
+		os.Exit(1)
+	}
+
+	if err := ctlrSvc.Watch(&source.Kind{Type: &netwv1.Ingress{}}, &handler.EnqueueRequestForOwner{
+		OwnerType: &corev1.Service{},
+		IsController: true,
+	}); err != nil {
+		fmt.Println("Watch ingress failed: ", err)
 		os.Exit(1)
 	}
 
