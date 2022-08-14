@@ -8,6 +8,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	//"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -53,7 +54,7 @@ func main() {
 	fmt.Println("Service controller created.")
 
 	// Register handler to controller concerning Pod, add the pod's key to the work queue
-	if err := ctlrPod.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForObject{}); err != nil {
+	if err := ctlrPod.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForObject{}, predicate.And(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{}), pdcIgnoreSysNs)); err != nil {
 		fmt.Println("Watch pods failed: ", err)
 		os.Exit(1)
 	}
@@ -69,7 +70,7 @@ func main() {
 	}
 
 	// Register handler to controller concerning Service, add the svc's key to the work queue
-	if err := ctlrSvc.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForObject{}); err != nil {
+	if err := ctlrSvc.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForObject{}, predicate.And(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{}), pdcIgnoreSysNs)); err != nil {
 		fmt.Println("Watch svc failed: ", err)
 		os.Exit(1)
 	}
