@@ -27,3 +27,5 @@ var pdcIgnoreSysNs = predicate.Funcs {
 		return e.Object.GetNamespace() != "kube-system"
 	},
 }
+
+var anotPred = predicate.And(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{}),pdcIgnoreSysNs)
