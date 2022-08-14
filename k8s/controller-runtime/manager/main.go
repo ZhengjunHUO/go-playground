@@ -27,7 +27,7 @@ func main() {
 	fmt.Println("Manager created.")
 
 	// Init controller, attached to the manager
-	ctlr, err := controller.New("demo-controller", mngr, controller.Options{
+	ctlrPod, err := controller.New("pod-controller", mngr, controller.Options{
 		// Method 1
 		//Reconciler: reconcile.Func(func(context.Context, reconcile.Request) (reconcile.Result, error) {
 		// 	// Implement reconcile logical here
@@ -37,10 +37,10 @@ func main() {
 		Reconciler: &podReconcile{cl: mngr.GetClient()},
 	})
 	if err != nil {
-		fmt.Println("Create controller failed: ", err)
+		fmt.Println("Create pod controller failed: ", err)
 		os.Exit(1)
 	}
-	fmt.Println("Controller created.")
+	fmt.Println("Pod controller created.")
 
 	// Prepare 2nd controller for svc, attached to the manager
 	ctlrSvc, err := controller.New("svc-controller", mngr, controller.Options{
@@ -53,14 +53,14 @@ func main() {
 	fmt.Println("Service controller created.")
 
 	// Register handler to controller concerning Pod, add the pod's key to the work queue
-	if err := ctlr.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForObject{}); err != nil {
+	if err := ctlrPod.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForObject{}); err != nil {
 		fmt.Println("Watch pods failed: ", err)
 		os.Exit(1)
 	}
 
 	// Register handler to controller watching the Service controlled by the pod, add the associated pod's key to the work queue (reconciler only interested in pod in this case)
 	// need to call controllerutil.SetControllerReference in the reconcile logic when dealing with the svc related to the pod
-	if err := ctlr.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForOwner{
+	if err := ctlrPod.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForOwner{
 		OwnerType: &corev1.Pod{},
 		IsController: true,
 	}); err != nil {
@@ -86,7 +86,7 @@ func main() {
 
 	// Start manager 
 	if err := mngr.Start(signals.SetupSignalHandler()); err != nil {
-		fmt.Println("Watch pods failed: ", err)
+		fmt.Println("Start manager failed: ", err)
 		os.Exit(1)
 	}
 	fmt.Println("Manager stopped, quit.")

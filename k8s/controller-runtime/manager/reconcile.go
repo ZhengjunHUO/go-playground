@@ -159,14 +159,16 @@ func (sr *svcReconcile) CreateRelatedIngress(ctx context.Context, svc *corev1.Se
 				},
 			}
 
+			if err = controllerutil.SetControllerReference(svc, ing, scheme.Scheme); err != nil {
+				fmt.Printf("Set controller ref failed for [%s]: %v\n", ingName, err)
+				return err
+			}
+
 			if err := sr.cl.Create(ctx, ing); err != nil {
 				fmt.Printf("Get an error in creating ingress [%s]: %v\n", ingName, err)
 				return err
 			}
 
-			if err = controllerutil.SetControllerReference(svc, ing, scheme.Scheme); err != nil {
-				return err
-			}
 			fmt.Printf("Create ingress [%s] for svc [%s]\n", ingName, svc.Name)
 		}
 		return err
