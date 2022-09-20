@@ -4,6 +4,7 @@ import (
 	"fmt"
 )
 
+/* Builder interface */
 type IFGunBuilder interface {
 	setMeleeWeapon()
 	setMainWeapon()
@@ -24,11 +25,17 @@ func getGunBuilder(builderType string) IFGunBuilder {
 	return nil
 }
 
-type StandardBuilder struct {
+/* Product */
+type Gundam struct {
 	meleeWeapon	string
 	mainWeapon	string
 	shield		string
 	longrangeWeapon	string
+}
+
+/* Builder Implementation */
+type StandardBuilder struct {
+	Gundam
 }
 
 func newStdBuilder() *StandardBuilder {
@@ -52,19 +59,12 @@ func (s *StandardBuilder) setLongRangeWeapon() {
 }
 
 func (s *StandardBuilder) getGundam() Gundam {
-	return Gundam{
-		meleeWeapon:		s.meleeWeapon,
-		mainWeapon:		s.mainWeapon,
-		shield:			s.shield,
-		longrangeWeapon:	s.longrangeWeapon,
-	}
+	return s.Gundam
 }
 
+
 type NextGenBuilder struct {
-	meleeWeapon	string
-	mainWeapon	string
-	shield		string
-	longrangeWeapon	string
+	Gundam
 }
 
 func newNextgenBuilder() *NextGenBuilder {
@@ -88,21 +88,10 @@ func (n *NextGenBuilder) setLongRangeWeapon() {
 }
 
 func (n *NextGenBuilder) getGundam() Gundam {
-	return Gundam{
-		meleeWeapon:		n.meleeWeapon,
-		mainWeapon:		n.mainWeapon,
-		shield:			n.shield,
-		longrangeWeapon:	n.longrangeWeapon,
-	}
+	return n.Gundam
 }
 
-type Gundam struct {
-	meleeWeapon	string
-	mainWeapon	string
-	shield		string
-	longrangeWeapon	string
-}
-
+/* Director: how to build */
 type Gnaku struct {
 	builder IFGunBuilder
 }
@@ -118,6 +107,10 @@ func (g *Gnaku) setGunBuilder(b IFGunBuilder) {
 }
 
 func (g *Gnaku) buildGundam() Gundam {
+	if g.builder == nil {
+		return Gundam{}
+	}
+
 	g.builder.setMeleeWeapon()
 	g.builder.setMainWeapon()
 	g.builder.setShield()
@@ -125,7 +118,9 @@ func (g *Gnaku) buildGundam() Gundam {
 	return g.builder.getGundam()
 }
 
+
 func main() {
 	fmt.Println(newGnaku(getGunBuilder("classic")).buildGundam())
 	fmt.Println(newGnaku(getGunBuilder("nextgen")).buildGundam())
+	fmt.Println(newGnaku(getGunBuilder("foo")).buildGundam())
 }
