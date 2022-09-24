@@ -60,6 +60,12 @@ func (s SerialNo) Annotate(c *CombatPower) {
 	c.serialNo = s
 }
 
+/* implementation check */
+var (
+	_ CombatPowerOption = Remarks{}
+	_ CombatPowerOption = SerialNo(0)
+)
+
 /* Builder */
 type Builder struct {
 	cmd	Commander
