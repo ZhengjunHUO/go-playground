@@ -35,7 +35,7 @@ func FilterClusters(clusters []*Cluster, filter *Filter) []string {
                                                 break
                                         }
                                 }else{
-                                        if v, exist := cluster.Labels[label.Key]; !exist || !(exist && v != label.Value) {
+                                        if v, exist := cluster.Labels[label.Key]; !(exist && v != label.Value) {
                                                 match = false
                                                 break
                                         }
