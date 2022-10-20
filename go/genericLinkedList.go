@@ -55,6 +55,9 @@ func (l *list[V]) printAll() {
 }
 
 func main() {
-	l := newList([]int{3,2,0,-4})
-	l.printAll()
+	intlist := newList([]int{3,2,0,-4})
+	intlist.printAll()
+
+	strlist := newList([]string{"foo", "bar", "fufu"})
+	strlist.printAll()
 }
