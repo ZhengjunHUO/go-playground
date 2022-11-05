@@ -7,7 +7,7 @@ import (
 	"log"
 	"fmt"
 
-	pf "github.com/ZhengjunHUO/playground/protobuf/protob"
+	pf "github.com/ZhengjunHUO/go-playground/protobuf/protob"
 	"google.golang.org/grpc"
 )
 

@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/ZhengjunHUO/playground/go-build/app"
+	"github.com/ZhengjunHUO/go-playground/go-build/app"
 )
 
 var version = "undefined"

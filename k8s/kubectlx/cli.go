@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/ZhengjunHUO/playground/k8s/kubectlx/cmd"
+	"github.com/ZhengjunHUO/go-playground/k8s/kubectlx/cmd"
 )
 
 func main() {

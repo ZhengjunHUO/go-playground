@@ -1,4 +1,4 @@
-module github.com/ZhengjunHUO/playground
+module github.com/ZhengjunHUO/go-playground
 
 go 1.17
 

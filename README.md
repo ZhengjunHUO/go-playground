@@ -1,4 +1,4 @@
-# playground
+# go-playground
 
 A place to test different subjects using Golang
 ```

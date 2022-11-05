@@ -1,6 +1,6 @@
 syntax="proto3";
 
-option go_package = "github.com/ZhengjunHUO/playground/protobuf/protob";
+option go_package = "github.com/ZhengjunHUO/go-playground/protobuf/protob";
 
 package protob;
 

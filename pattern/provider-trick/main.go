@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"context"
 
-	"github.com/ZhengjunHUO/playground/pattern/provider-trick/internal"
-	"github.com/ZhengjunHUO/playground/pattern/provider-trick/foo"
-	"github.com/ZhengjunHUO/playground/pattern/provider-trick/bar"
+	"github.com/ZhengjunHUO/go-playground/pattern/provider-trick/internal"
+	"github.com/ZhengjunHUO/go-playground/pattern/provider-trick/foo"
+	"github.com/ZhengjunHUO/go-playground/pattern/provider-trick/bar"
 )
 
 func main() {
