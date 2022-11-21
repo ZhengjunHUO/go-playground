@@ -8,6 +8,7 @@ require (
 	github.com/go-playground/validator/v10 v10.11.0
 	github.com/golang/protobuf v1.5.2
 	github.com/spf13/cobra v1.4.0
+	golang.org/x/sync v0.1.0
 	google.golang.org/grpc v1.40.0
 	google.golang.org/protobuf v1.28.0
 	k8s.io/api v0.24.2
