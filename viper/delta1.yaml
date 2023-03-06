@@ -1,0 +1,6 @@
+inventory:
+  foo:
+    name: fufu
+    service: foo-svc
+  huo:
+    name: huo

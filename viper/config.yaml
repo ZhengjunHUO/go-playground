@@ -1,0 +1,10 @@
+inventory:
+  foo:
+    name: foo-name
+    service: foo-svc
+  bar:
+    name: bar-name
+    service: bar-svc
+  baz:
+    name: baz-name
+    service: baz-svc
