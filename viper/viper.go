@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func main() {
+func concat() {
 	// load principle config into global viper
 	conf := "./config.yaml"
 	viper.SetConfigFile(conf)
