@@ -18,42 +18,31 @@ var ConfCmd = &cobra.Command{
 	Use:   "conf",
 	Short: "generate config yaml",
 	Run: func(cmd *cobra.Command, args []string) {
-		// read in config file, get env from os recursively
-		load_from_env_var(envConfig)
-
+		// (1) read in principle config to viper
 		fmt.Println("[DEBUG] main config is: ", mainConfig)
-		fmt.Println("[DEBUG] delta(s): ")
-		for _, v := range patches {
-			fmt.Println("  - ", v)
-		}
-
 		viper.SetConfigFile(mainConfig)
 		if err := viper.ReadInConfig(); err != nil {
 			fmt.Println("Error reading config file: ", err)
 		}
 
+		// debug output
 		fmt.Println("[DEBUG] viper's content: ")
 		print_all(viper.GetViper())
 
-		// load patch into a sub viper
-		for _, val := range patches {
-			delta := viper.New()
-			delta.SetConfigFile(val)
-			if err := delta.ReadInConfig(); err != nil {
-				fmt.Printf("Error reading %v : %v\n", val, err)
-			}
-
-			fmt.Printf("[DEBUG] %v's content: \n", val)
-			print_all(delta)
-
-			// merge the patch to the principle viper
-			if err := viper.MergeConfigMap(delta.AllSettings()); err != nil {
-				fmt.Printf("Error merge %v to viper: %v\n", val, err)
-			}
-
-			fmt.Printf("[DEBUG] viper's content after merge %v: \n", val)
-			print_all(viper.GetViper())
+		fmt.Println("[DEBUG] delta(s): ")
+		for _, v := range patches {
+			fmt.Println("  - ", v)
 		}
+
+		// (2) override values in viper with patches
+		load_patches()
+
+		// (3) read in config file, get env from os recursively
+		load_from_env_var(envConfig)
+
+		// debug output
+		fmt.Println("[DEBUG] viper's final content: ")
+		print_all(viper.GetViper())
 	},
 }
 
@@ -71,6 +60,28 @@ func print_all(v *viper.Viper) {
 		fmt.Printf("[%v]: %v\n", key, v.Get(key))
 	}
 	fmt.Println()
+}
+
+func load_patches() {
+	// load patch into a sub viper
+	for _, val := range patches {
+		delta := viper.New()
+		delta.SetConfigFile(val)
+		if err := delta.ReadInConfig(); err != nil {
+			fmt.Printf("Error reading %v : %v\n", val, err)
+		}
+
+		fmt.Printf("[DEBUG] %v's content: \n", val)
+		print_all(delta)
+
+		// merge the patch to the principle viper
+		if err := viper.MergeConfigMap(delta.AllSettings()); err != nil {
+			fmt.Printf("Error merge %v to viper: %v\n", val, err)
+		}
+
+		fmt.Printf("[DEBUG] viper's content after merge %v: \n", val)
+		print_all(viper.GetViper())
+	}
 }
 
 func load_from_env_var(conf string) {
