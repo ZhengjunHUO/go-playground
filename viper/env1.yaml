@@ -1,0 +1,6 @@
+inventory:
+  bar:
+    secret: BAR_SECRET
+
+include:
+  - env3.yaml

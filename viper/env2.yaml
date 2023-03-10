@@ -1,0 +1,3 @@
+inventory:
+  baz:
+    secret: BAZ_SECRET

@@ -18,25 +18,8 @@ var ConfCmd = &cobra.Command{
 	Use:   "conf",
 	Short: "generate config yaml",
 	Run: func(cmd *cobra.Command, args []string) {
-		envViper := viper.New()
-		envViper.SetConfigFile(envConfig)
-		if err := envViper.ReadInConfig(); err != nil {
-			fmt.Println("Error reading env config file: ", err)
-		}
-
-		for _, v := range envViper.AllKeys() {
-			fmt.Printf("[Debug] env: %v\n", v)
-			name := envViper.GetString(v)
-			fmt.Printf("[Debug]     %v\n", name)
-			value, isSet := os.LookupEnv(name)
-			if !isSet {
-				fmt.Printf("[Debug]     Env %v not set, skip\n", name)
-			} else {
-				fmt.Printf("[Debug]     [%v: %v]\n", name, value)
-				fmt.Printf("[Debug]     [%v: %v]\n", v, value)
-				viper.Set(v, value)
-			}
-		}
+		// read in config file, get env from os recursively
+		load_from_env_var(envConfig)
 
 		fmt.Println("[DEBUG] main config is: ", mainConfig)
 		fmt.Println("[DEBUG] delta(s): ")
@@ -88,4 +71,35 @@ func print_all(v *viper.Viper) {
 		fmt.Printf("[%v]: %v\n", key, v.Get(key))
 	}
 	fmt.Println()
+}
+
+func load_from_env_var(conf string) {
+	envViper := viper.New()
+	envViper.SetConfigFile(conf)
+	if err := envViper.ReadInConfig(); err != nil {
+		fmt.Println("Error reading env config file: ", err)
+	}
+
+	for _, v := range envViper.AllKeys() {
+		if v == "include" {
+			l := envViper.GetStringSlice(v)
+			fmt.Printf("[Debug] include: %v\n", l)
+			for _, f := range l {
+				load_from_env_var(f)
+			}
+			continue
+		}
+
+		fmt.Printf("[Debug] env: %v\n", v)
+		name := envViper.GetString(v)
+		fmt.Printf("[Debug]     %v\n", name)
+		value, isSet := os.LookupEnv(name)
+		if !isSet {
+			fmt.Printf("[Debug]     Env %v not set, skip\n", name)
+		} else {
+			fmt.Printf("[Debug]     [%v: %v]\n", name, value)
+			fmt.Printf("[Debug]     [%v: %v]\n", v, value)
+			viper.Set(v, value)
+		}
+	}
 }
