@@ -8,3 +8,24 @@ inventory:
   baz:
     name: $BAZNAME
     service: baz-svc
+    # map
+    labels:
+      foo1: bar1
+      foo2: bar2
+    # list of string
+    command:
+      - "/bin/bash"
+      - "-c"
+      - "whoami"
+    # list of struct
+    ports:
+      - name: http
+        port: 80
+      - name: https
+        port: 443
+    # list of string inside list of struct
+    affinity:
+      - key: "team"
+        value:
+          - "dev"
+          - "ops"

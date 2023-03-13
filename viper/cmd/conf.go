@@ -67,9 +67,24 @@ func print_all(v *viper.Viper) {
 			fmt.Printf("Find an env var: %v\n", envVar)
 			load_env_var_to_viper(key, envVar)
 		}
+		if reflect.ValueOf(val).Kind() == reflect.Slice {
+			fmt.Printf("%v(%v) is a slice. dive in ... \n", key, val)
+			check_slice(v, key)
+		}
 		fmt.Printf("[%v]: %v(%v)\n", key, val, reflect.TypeOf(val))
 	}
 	fmt.Println()
+}
+
+func check_slice(v *viper.Viper, keyname string) {
+	val := v.Get(keyname).([]interface{})
+	for i := range val {
+		//temp := fmt.Sprintf("%v[%v]", keyname, i)
+		//fmt.Printf("  [DEBUG: SLICE] %v\n", temp)
+                //rslt := v.Get(temp)
+		fmt.Printf("  [DEBUG: SLICE] %v (%v)\n", val[i], reflect.TypeOf(val[i]))
+		//fmt.Printf("  [DEBUG: SLICE] %v (%v)\n", rslt, reflect.TypeOf(rslt))
+	}
 }
 
 func load_patches() {
