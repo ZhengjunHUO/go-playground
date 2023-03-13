@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"reflect"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -38,7 +40,9 @@ var ConfCmd = &cobra.Command{
 		load_patches()
 
 		// (3) read in config file, get env from os recursively
-		load_from_env_var(envConfig)
+		if len(envConfig) != 0 {
+			load_from_env_var(envConfig)
+		}
 
 		// debug output
 		fmt.Println("[DEBUG] viper's final content: ")
@@ -57,7 +61,13 @@ func init() {
 
 func print_all(v *viper.Viper) {
 	for _, key := range v.AllKeys() {
-		fmt.Printf("[%v]: %v\n", key, v.Get(key))
+		val := v.Get(key)
+		if reflect.ValueOf(val).Kind() == reflect.String && strings.HasPrefix(val.(string), "$") {
+			envVar := val.(string)[1:]
+			fmt.Printf("Find an env var: %v\n", envVar)
+			load_env_var_to_viper(key, envVar)
+		}
+		fmt.Printf("[%v]: %v(%v)\n", key, val, reflect.TypeOf(val))
 	}
 	fmt.Println()
 }
@@ -104,13 +114,17 @@ func load_from_env_var(conf string) {
 		fmt.Printf("[Debug] env: %v\n", v)
 		name := envViper.GetString(v)
 		fmt.Printf("[Debug]     %v\n", name)
-		value, isSet := os.LookupEnv(name)
-		if !isSet {
-			fmt.Printf("[Debug]     Env %v not set, skip\n", name)
-		} else {
-			fmt.Printf("[Debug]     [%v: %v]\n", name, value)
-			fmt.Printf("[Debug]     [%v: %v]\n", v, value)
-			viper.Set(v, value)
-		}
+		load_env_var_to_viper(v, name)
+	}
+}
+
+func load_env_var_to_viper(keyname, envname string) {
+	value, isSet := os.LookupEnv(envname)
+	if !isSet {
+		fmt.Printf("[Debug]     Env %v not set, skip\n", envname)
+	} else {
+		fmt.Printf("[Debug]     Env var [%v: %v]\n", envname, value)
+		fmt.Printf("[Debug]     Load [%v: %v]\n", keyname, value)
+		viper.Set(keyname, value)
 	}
 }

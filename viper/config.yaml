@@ -6,5 +6,5 @@ inventory:
     name: bar-name
     service: bar-svc
   baz:
-    name: baz-name
+    name: $BAZNAME
     service: baz-svc
