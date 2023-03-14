@@ -19,13 +19,13 @@ inventory:
       - "whoami"
     # list of struct
     ports:
-      - name: http
+      - name: ${http}
         port: 80
       - name: https
-        port: 443
+        port: $SECURE_PORT
     # list of string inside list of struct
     affinity:
       - key: "team"
         value:
-          - "dev"
+          - $dev_team
           - "ops"

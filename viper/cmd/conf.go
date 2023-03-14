@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -29,24 +31,32 @@ var ConfCmd = &cobra.Command{
 
 		// debug output
 		fmt.Println("[DEBUG] viper's content: ")
-		print_all(viper.GetViper())
+		fmt.Printf("%v\n", viper.AllSettings())
+		//print_all(viper.GetViper())
 
+		/*
 		fmt.Println("[DEBUG] delta(s): ")
 		for _, v := range patches {
 			fmt.Println("  - ", v)
 		}
+		*/
+
+		// (1bis) replace env var
+		render_env(mainConfig)
 
 		// (2) override values in viper with patches
 		load_patches()
 
-		// (3) read in config file, get env from os recursively
+		/* (3) read in config file, get env from os recursively
 		if len(envConfig) != 0 {
 			load_from_env_var(envConfig)
 		}
+		*/
 
 		// debug output
 		fmt.Println("[DEBUG] viper's final content: ")
-		print_all(viper.GetViper())
+		fmt.Printf("%v\n", viper.AllSettings())
+		//print_all(viper.GetViper())
 	},
 }
 
@@ -65,12 +75,14 @@ func print_all(v *viper.Viper) {
 		if reflect.ValueOf(val).Kind() == reflect.String && strings.HasPrefix(val.(string), "$") {
 			envVar := val.(string)[1:]
 			fmt.Printf("Find an env var: %v\n", envVar)
-			load_env_var_to_viper(key, envVar)
+			//load_env_var_to_viper(key, envVar)
 		}
+		/*
 		if reflect.ValueOf(val).Kind() == reflect.Slice {
 			fmt.Printf("%v(%v) is a slice. dive in ... \n", key, val)
 			check_slice(v, key)
 		}
+		*/
 		fmt.Printf("[%v]: %v(%v)\n", key, val, reflect.TypeOf(val))
 	}
 	fmt.Println()
@@ -84,6 +96,12 @@ func check_slice(v *viper.Viper, keyname string) {
                 //rslt := v.Get(temp)
 		fmt.Printf("  [DEBUG: SLICE] %v (%v)\n", val[i], reflect.TypeOf(val[i]))
 		//fmt.Printf("  [DEBUG: SLICE] %v (%v)\n", rslt, reflect.TypeOf(rslt))
+		switch reflect.ValueOf(val[i]).Kind() {
+		case reflect.Map:
+			fmt.Printf("  [DEBUG: SLICE] %v is a map\n", val[i])
+		case reflect.String:
+			fmt.Printf("  [DEBUG: SLICE] %v is a string\n", val[i])
+		}
 	}
 }
 
@@ -142,4 +160,39 @@ func load_env_var_to_viper(keyname, envname string) {
 		fmt.Printf("[Debug]     Load [%v: %v]\n", keyname, value)
 		viper.Set(keyname, value)
 	}
+}
+
+func fetch_env_var(envname []byte) []byte {
+	value, isSet := os.LookupEnv(string(envname))
+	if !isSet {
+		fmt.Printf("[Fatal] Env %v not set !\n", string(envname))
+		os.Exit(1)
+	}
+
+	return []byte(value)
+}
+
+func render_env(filename string) {
+	buf, err := os.ReadFile(filename);
+	if err != nil {
+		fmt.Printf("Error reading file: %v\n", filename)
+		return
+	}
+	//s := string(buf)
+
+	re := regexp.MustCompile(`\$[[:word:]]+|\${[[:word:]]+}`)
+	//re.FindAllString
+	envs := re.FindAll(buf, -1)
+	fmt.Printf("[Debug] Envs found: %q\n", envs)
+
+	for i := range envs {
+		if bytes.HasPrefix(envs[i], []byte("${")) {
+			buf = bytes.Replace(buf, envs[i], fetch_env_var(envs[i][2:len(envs[i])-1]), -1)
+		} else {
+			buf = bytes.Replace(buf, envs[i], fetch_env_var(envs[i][1:]), -1)
+		}
+	}
+
+	//fmt.Printf("[Debug] After rendering: %s\n", string(buf))
+	viper.ReadConfig(bytes.NewReader(buf))
 }
