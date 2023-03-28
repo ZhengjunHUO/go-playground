@@ -1,7 +1,10 @@
 package main
 
 import (
+	//"bufio"
+	"bytes"
 	"fmt"
+	//"io"
 	"os"
 
 	"github.com/spf13/viper"
@@ -40,6 +43,7 @@ type HeroMs struct {
 }
 
 func main() {
+	// Read into viper
 	conf := "./input.yaml"
 	viper.SetConfigFile(conf)
 	if err := viper.ReadInConfig(); err != nil {
@@ -49,8 +53,65 @@ func main() {
 	fmt.Println("[DEBUG] viper's content: ")
 	print_all(viper.GetViper())
 
+	//use_mapstruct()
+	use_yaml()
+}
+
+func use_yaml() {
 	// (1) viper map[string]interface{} => go struct
-	//var hero HeroYaml
+	var hero Hero
+	dec, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "yaml", Result: &hero})
+	if err != nil {
+		fmt.Printf("Error init decoder: %v\n", err)
+		os.Exit(1)
+	}
+
+	if err := dec.Decode(viper.GetStringMap("inventory.hero1")); err != nil {
+		fmt.Printf("Error decoding: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("[DEBUG] hero: \n%v\n", hero)
+
+	// (2) go struct => viper map[string]interface{}
+	buf := bytes.NewBuffer([]byte{})
+	enc := yaml.NewEncoder(buf)
+	dummy := "dummy"
+
+	if err := enc.Encode(map[string]interface{}{dummy: map[string]interface{}{"hero1": hero}}); err != nil {
+		fmt.Printf("Error encoding: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("[DEBUG] buf: \n%v\n", buf.String()[len(dummy)+2:])
+
+	// (3) load to new viper
+	/*
+	vip := viper.New()
+	vip.Set("inventory", buf.String())
+	print_all(vip)
+
+	content, err := yaml.Marshal(vip.AllSettings())
+	if err != nil {
+		fmt.Printf("Error marshalling: %v\n", err)
+		os.Exit(1)
+	}
+        brContent := bufio.NewReader(bytes.NewBuffer(content))
+	for {
+		line, _ , err := brContent.ReadLine()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			fmt.Printf("Error read line: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("%v\n", string(line))
+	}
+	*/
+}
+
+func use_mapstruct() {
+	// (1) viper map[string]interface{} => go struct
 	var hero HeroMs
 	if err := mapstructure.Decode(viper.GetStringMap("inventory.hero1"), &hero); err != nil {
 		fmt.Printf("Error decoding: %v\n", err)
