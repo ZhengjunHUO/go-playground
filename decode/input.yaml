@@ -1,0 +1,14 @@
+inventory:
+  hero1:
+    full_name: "Fufu Wang"
+    age: 7
+    emails:
+      - addr_name: "fufu@foo.com"
+        extra_info: "principle"
+      - addr_name: "fufu@bar.com"
+        extra_info: "backup"
+    config_map_key_value:
+      - key_name: color
+        value_name: orange
+      - key_name: type
+        value_name: jaeger
