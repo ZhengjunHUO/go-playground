@@ -1,10 +1,10 @@
 package main
 
 import (
-	//"bufio"
+	"bufio"
 	"bytes"
 	"fmt"
-	//"io"
+	"io"
 	"os"
 
 	"github.com/spf13/viper"
@@ -85,29 +85,11 @@ func use_yaml() {
 	fmt.Printf("[DEBUG] buf: \n%v\n", buf.String()[len(dummy)+2:])
 
 	// (3) load to new viper
-	/*
 	vip := viper.New()
-	vip.Set("inventory", buf.String())
+	vip.SetConfigType("yaml")
+	vip.ReadConfig(buf)
 	print_all(vip)
-
-	content, err := yaml.Marshal(vip.AllSettings())
-	if err != nil {
-		fmt.Printf("Error marshalling: %v\n", err)
-		os.Exit(1)
-	}
-        brContent := bufio.NewReader(bytes.NewBuffer(content))
-	for {
-		line, _ , err := brContent.ReadLine()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			fmt.Printf("Error read line: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Printf("%v\n", string(line))
-	}
-	*/
+	print_all_settings(vip)
 }
 
 func use_mapstruct() {
@@ -140,4 +122,25 @@ func print_all(v *viper.Viper) {
 		fmt.Printf("[%v]: %v\n", key, v.Get(key))
 	}
 	fmt.Println()
+}
+
+func print_all_settings(v *viper.Viper) {
+        content, err := yaml.Marshal(v.AllSettings())
+        if err != nil {
+		fmt.Printf("Error marshalling: %v\n", err)
+		os.Exit(1)
+        }
+        br := bufio.NewReader(bytes.NewBuffer(content))
+
+	for {
+		line, _, err := br.ReadLine()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			fmt.Printf("Error read line: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("%v\n", string(line))
+	}
 }
