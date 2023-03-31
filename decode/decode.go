@@ -7,40 +7,42 @@ import (
 	"io"
 	"os"
 
-	"github.com/spf13/viper"
 	"github.com/mitchellh/mapstructure"
+	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 )
 
 type MapKeyValue struct {
-        ValueName string `yaml:"value_name"`
-        KeyName   string `yaml:"key_name"`
+	ValueName string `yaml:"value_name"`
+	KeyName   string `yaml:"key_name"`
 }
 
 type MapKeyValueMs struct {
-        ValueName string `mapstructure:"value_name"`
-        KeyName   string `mapstructure:"key_name"`
+	ValueName string `mapstructure:"value_name"`
+	KeyName   string `mapstructure:"key_name"`
 }
 
 type Hero struct {
-	Name string `yaml:"full_name"`
-	Age int `yaml:"age"`
+	Name   string `yaml:"full_name"`
+	Age    int    `yaml:"age"`
 	Emails []struct {
-		Address	string `yaml:"addr_name"`
-		Extra	string `yaml:"extra_info"`
+		Address string `yaml:"addr_name"`
+		Extra   string `yaml:"extra_info"`
 	} `yaml:"emails"`
 	ConfigMapKeyValue []MapKeyValue `yaml:"config_map_key_value"`
 }
 
 type HeroMs struct {
-	Name string `mapstructure:"full_name"`
-	Age int `mapstructure:"age"`
+	Name   string `mapstructure:"full_name"`
+	Age    int    `mapstructure:"age"`
 	Emails []struct {
-		Address	string `mapstructure:"addr_name"`
-		Extra	string `mapstructure:"extra_info"`
+		Address string `mapstructure:"addr_name"`
+		Extra   string `mapstructure:"extra_info"`
 	} `mapstructure:"emails"`
 	ConfigMapKeyValue []MapKeyValueMs `mapstructure:"config_map_key_value"`
 }
+
+var decodeOpt viper.DecoderConfigOption
 
 func main() {
 	// Read into viper
@@ -53,6 +55,10 @@ func main() {
 	fmt.Println("[DEBUG] viper's content: ")
 	print_all(viper.GetViper())
 
+	decodeOpt = viper.DecoderConfigOption(func(dc *mapstructure.DecoderConfig) {
+		dc.TagName = "yaml"
+	})
+
 	//use_mapstruct()
 	use_yaml()
 }
@@ -60,14 +66,21 @@ func main() {
 func use_yaml() {
 	// (1) viper map[string]interface{} => go struct
 	var hero Hero
-	dec, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "yaml", Result: &hero})
-	if err != nil {
-		fmt.Printf("Error init decoder: %v\n", err)
-		os.Exit(1)
-	}
+	/*
+		dec, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "yaml", Result: &hero})
+		if err != nil {
+			fmt.Printf("Error init decoder: %v\n", err)
+			os.Exit(1)
+		}
 
-	if err := dec.Decode(viper.GetStringMap("inventory.hero1")); err != nil {
-		fmt.Printf("Error decoding: %v\n", err)
+		if err := dec.Decode(viper.GetStringMap("inventory.hero1")); err != nil {
+			fmt.Printf("Error decoding: %v\n", err)
+			os.Exit(1)
+		}
+	*/
+	err := viper.UnmarshalKey("inventory.hero1", &hero, decodeOpt)
+	if err != nil {
+		fmt.Printf("Error unmarshal key: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -125,12 +138,12 @@ func print_all(v *viper.Viper) {
 }
 
 func print_all_settings(v *viper.Viper) {
-        content, err := yaml.Marshal(v.AllSettings())
-        if err != nil {
+	content, err := yaml.Marshal(v.AllSettings())
+	if err != nil {
 		fmt.Printf("Error marshalling: %v\n", err)
 		os.Exit(1)
-        }
-        br := bufio.NewReader(bytes.NewBuffer(content))
+	}
+	br := bufio.NewReader(bytes.NewBuffer(content))
 
 	for {
 		line, _, err := br.ReadLine()
