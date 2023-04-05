@@ -1,14 +1,36 @@
 inventory:
-  hero1:
-    full_name: "Fufu Wang"
-    age: 7
-    emails:
-      - addr_name: "fufu@foo.com"
-        extra_info: "principle"
-      - addr_name: "fufu@bar.com"
-        extra_info: "backup"
-    config_map_key_value:
-      - key_name: color
-        value_name: orange
-      - key_name: type
-        value_name: jaeger
+#  hero1:
+#    full_name: "Fufu Wang"
+#    age: 7
+#    emails:
+#      - addr_name: "fufu@foo.com"
+#        extra_info: "principle"
+#      - addr_name: "fufu@bar.com"
+#        extra_info: "backup"
+#    config_map_key_value:
+#      - key_name: color
+#        value_name: orange
+#      - key_name: type
+#        value_name: jaeger
+  object1:
+    full_name: "rustacean"
+    id: 5
+    is_global: true
+    params:
+      - "cargo"
+      - "check"
+    labels:
+      foo1: "bar1"
+      foo2: "bar2"
+    ref_counter: 3
+    sub_object:
+      full_name: "rusty"
+      id: 12
+      is_global: false
+      params:
+        - "rustup"
+        - "doc"
+      labels:
+        foo3: "bar3"
+        foo4: "bar4"
+      ref_counter: 1

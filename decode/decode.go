@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"reflect"
+	"strings"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
@@ -42,7 +44,53 @@ type HeroMs struct {
 	ConfigMapKeyValue []MapKeyValueMs `mapstructure:"config_map_key_value"`
 }
 
+var dictKeys map[string]struct{}
+var dictMaps map[string]struct{}
+
+type Object struct {
+	Name       string                 `yaml:"full_name,omitempty"`
+	Id         int                    `yaml:"id,omitempty"`
+	IsGlobal   bool                   `yaml:"is_global,omitempty"`
+	Params     []string               `yaml:"params,omitempty"`
+	Labels     map[string]interface{} `yaml:"labels,omitempty"`
+	RefCounter *int32                 `yaml:"ref_counter,omitempty"`
+	SubObject  SubObject              `yaml:"sub_object,omitempty"`
+}
+
+type SubObject struct {
+	Name       string                 `yaml:"full_name,omitempty"`
+	Id         int                    `yaml:"id,omitempty"`
+	IsGlobal   bool                   `yaml:"is_global,omitempty"`
+	Params     []string               `yaml:"params,omitempty"`
+	Labels     map[string]interface{} `yaml:"labels,omitempty"`
+	RefCounter *int32                 `yaml:"ref_counter,omitempty"`
+}
+
 var decodeOpt viper.DecoderConfigOption
+
+func infer_viper_keys(v reflect.Value, prefix string) {
+	t := v.Type()
+	fields := reflect.VisibleFields(t)
+
+	for _, f := range fields {
+		/*
+			fmt.Println(f.Name)
+			fmt.Println(f.Type)
+			fmt.Println(f.Type.Kind())
+			fmt.Println(strings.Split(f.Tag.Get("yaml"), ",")[0])
+			fmt.Println()
+		*/
+		keyname := prefix + strings.Split(f.Tag.Get("yaml"), ",")[0]
+		switch f.Type.Kind() {
+		case reflect.Map:
+			dictMaps[keyname] = struct{}{}
+		case reflect.Struct:
+			infer_viper_keys(v.FieldByName(f.Name), keyname+".")
+		default:
+			dictKeys[keyname] = struct{}{}
+		}
+	}
+}
 
 func main() {
 	// Read into viper
@@ -60,7 +108,16 @@ func main() {
 	})
 
 	//use_mapstruct()
-	use_yaml()
+	//use_yaml()
+
+	dictKeys = map[string]struct{}{}
+	dictMaps = map[string]struct{}{}
+
+	v := reflect.ValueOf(Object{})
+	infer_viper_keys(v, "")
+
+	fmt.Printf("dictKeys: %#v\n", dictKeys)
+	fmt.Printf("dictMaps: %#v\n", dictMaps)
 }
 
 func use_yaml() {
