@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"html/template"
 	"io"
 	"os"
 	"reflect"
@@ -68,6 +69,9 @@ type SubObject struct {
 
 var decodeOpt viper.DecoderConfigOption
 
+// infer_viper_keys generates the viper keys based on the yaml tag's name in a recursive way
+// if the field is a struct, it dives into the field and generates the key
+// by appending the filed's name as a prefix
 func infer_viper_keys(v reflect.Value, prefix string) {
 	t := v.Type()
 	fields := reflect.VisibleFields(t)
@@ -100,16 +104,17 @@ func main() {
 		fmt.Println("Error reading config file: ", err)
 	}
 
-	fmt.Println("[DEBUG] viper's content: ")
-	print_all(viper.GetViper())
+	//fmt.Println("[DEBUG] viper's content: ")
+	//print_all(viper.GetViper())
 
 	decodeOpt = viper.DecoderConfigOption(func(dc *mapstructure.DecoderConfig) {
 		dc.TagName = "yaml"
 	})
 
 	//use_mapstruct()
-	//use_yaml()
+	use_yaml()
 
+	/*
 	dictKeys = map[string]struct{}{}
 	dictMaps = map[string]struct{}{}
 
@@ -118,6 +123,7 @@ func main() {
 
 	fmt.Printf("dictKeys: %#v\n", dictKeys)
 	fmt.Printf("dictMaps: %#v\n", dictMaps)
+	*/
 }
 
 func use_yaml() {
@@ -141,10 +147,10 @@ func use_yaml() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("[DEBUG] hero: \n%v\n", hero)
+	//fmt.Printf("[DEBUG] hero: \n%v\n", hero)
 
 	// (2) go struct => viper map[string]interface{}
-	buf := bytes.NewBuffer([]byte{})
+	buf, rslt := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
 	enc := yaml.NewEncoder(buf)
 	dummy := "dummy"
 
@@ -152,13 +158,28 @@ func use_yaml() {
 		fmt.Printf("Error encoding: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("[DEBUG] buf: \n%v\n", buf.String()[len(dummy)+2:])
+	//fmt.Printf("[DEBUG] buf: \n%v\n", buf.String()[len(dummy)+2:])
+	rslt.WriteString("inventory:\n")
+	rslt.WriteString(buf.String()[len(dummy)+2:]+"\n")
 
-	// (3) load to new viper
-	vip := viper.New()
+	// (3) load raw data to a new viper, render it
+	// and load the final result to another viper
+	vip, vip_raw := viper.New(), viper.New()
 	vip.SetConfigType("yaml")
-	vip.ReadConfig(buf)
-	print_all(vip)
+	vip_raw.SetConfigType("yaml")
+
+	// prepare the raw viper
+	data := bytes.NewReader(rslt.Bytes())
+	vip_raw.ReadConfig(data)
+
+	fmt.Println("[DEBUG] vip_raw:")
+	print_all_settings(vip_raw)
+
+	// do the rendering and load the final params to another viper instance
+	vip.ReadConfig(selfRender(rslt.Bytes(), vip_raw))
+
+	//print_all(vip)
+	fmt.Println("[DEBUG] vip:")
 	print_all_settings(vip)
 }
 
@@ -187,6 +208,7 @@ func use_mapstruct() {
 	fmt.Printf("Result: %v\n", string(content))
 }
 
+// print_all prints all key-value pairs in a viper instance
 func print_all(v *viper.Viper) {
 	for _, key := range v.AllKeys() {
 		fmt.Printf("[%v]: %v\n", key, v.Get(key))
@@ -194,6 +216,7 @@ func print_all(v *viper.Viper) {
 	fmt.Println()
 }
 
+// print_all_settings prints the all viper's values with yaml format
 func print_all_settings(v *viper.Viper) {
 	content, err := yaml.Marshal(v.AllSettings())
 	if err != nil {
@@ -213,4 +236,15 @@ func print_all_settings(v *viper.Viper) {
 		}
 		fmt.Printf("%v\n", string(line))
 	}
+}
+
+func selfRender(data []byte, v *viper.Viper) *bytes.Buffer {
+        var out bytes.Buffer
+        tmpl := template.Must(template.New("selfTemplate").Parse(string(data)))
+        tmpl.Delims("{{", "}}")
+        err := tmpl.Execute(&out, v.AllSettings())
+        if err != nil {
+                panic(err)
+        }
+        return &out
 }
