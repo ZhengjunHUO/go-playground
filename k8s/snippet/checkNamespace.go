@@ -21,6 +21,17 @@ func NamespaceExists(clientset *kubernetes.Clientset, namespace string) (bool, e
 	return true, nil
 }
 
+func storageClassExists(clientset *kubernetes.Clientset, scName string) (bool, error) {
+	_, err := clientset.StorageV1().StorageClasses().Get(context.Background(), scName, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 func main() {
 	// Use the path to the Kubernetes config file
 	config, err := clientcmd.BuildConfigFromFlags("", "/home/huo/.kube/config")
@@ -34,15 +45,29 @@ func main() {
 		panic(err.Error())
 	}
 
-	// Check if namespace "my-namespace" exists
-	exists, err := NamespaceExists(clientset, "default")
+	// Check if namespace exists
+	nsName := "default"
+	exists, err := NamespaceExists(clientset, nsName)
 	if err != nil {
 		panic(err.Error())
 	}
 
 	if exists {
-		fmt.Println("Namespace exists!")
+		fmt.Printf("Namespace %s exists!\n", nsName)
 	} else {
-		fmt.Println("Namespace does not exist!")
+		fmt.Printf("Namespace %s does not exist!\n", nsName)
+	}
+
+	// Check if storage exists
+	scName := "premium-rwo"
+	exists, err = storageClassExists(clientset, scName)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	if exists {
+		fmt.Printf("Storage class %s exists!\n", scName)
+	} else {
+		fmt.Printf("Storage class %s does not exist!\n", scName)
 	}
 }
