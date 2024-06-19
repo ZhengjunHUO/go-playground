@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"io"
 	"os"
+	//"os/exec"
 	"reflect"
 	"strings"
 
@@ -123,6 +124,24 @@ func main() {
 
 	fmt.Printf("dictKeys: %#v\n", dictKeys)
 	fmt.Printf("dictMaps: %#v\n", dictMaps)
+	*/
+
+	/*
+	transformer := `jq -rR 'gsub("-";"+") | gsub("_";"/") | split(".") | .[1] | @base64d | fromjson | .email'`
+	cmd := exec.Command("bash", "-c", transformer)
+	cmd.Stdin = strings.NewReader("eyJh...")
+
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+	    fmt.Println(fmt.Sprint(err) + ": " + stderr.String())
+	    return
+	}
+	fmt.Println(out.String())
 	*/
 }
 
