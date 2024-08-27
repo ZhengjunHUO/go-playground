@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"log"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func NamespaceExists(clientset *kubernetes.Clientset, namespace string) (bool, error) {
@@ -32,6 +32,11 @@ func storageClassExists(clientset *kubernetes.Clientset, scName string) (bool, e
 	return true, nil
 }
 
+func getServerVersion(clientset *kubernetes.Clientset) (string, error) {
+	serverVersion, err := clientset.Discovery().ServerVersion()
+	return serverVersion.GitVersion, err
+}
+
 func main() {
 	// Use the path to the Kubernetes config file
 	config, err := clientcmd.BuildConfigFromFlags("", "/home/huo/.kube/config")
@@ -45,6 +50,13 @@ func main() {
 		panic(err.Error())
 	}
 
+	// Get server version
+	serverVersion, err := getServerVersion(clientset)
+	if err != nil {
+		log.Fatalf("Error getting server version: %v", err)
+	}
+	log.Printf("Kubernetes Server Version: %s\n", serverVersion)
+
 	// Check if namespace exists
 	nsName := "default"
 	exists, err := NamespaceExists(clientset, nsName)
@@ -53,9 +65,9 @@ func main() {
 	}
 
 	if exists {
-		fmt.Printf("Namespace %s exists!\n", nsName)
+		log.Printf("Namespace %s exists!\n", nsName)
 	} else {
-		fmt.Printf("Namespace %s does not exist!\n", nsName)
+		log.Printf("Namespace %s does not exist!\n", nsName)
 	}
 
 	// Check if storage exists
@@ -66,8 +78,8 @@ func main() {
 	}
 
 	if exists {
-		fmt.Printf("Storage class %s exists!\n", scName)
+		log.Printf("Storage class %s exists!\n", scName)
 	} else {
-		fmt.Printf("Storage class %s does not exist!\n", scName)
+		log.Printf("Storage class %s does not exist!\n", scName)
 	}
 }
