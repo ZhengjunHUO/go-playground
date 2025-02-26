@@ -239,15 +239,40 @@ func poc_helm_upgrade(withInstall bool) {
 	// Install chart
 	rslt, err := client.Run("obs", chart, coalescedValues)
 	if err != nil {
-		log.Fatalf("Error occurred installing chart: %v", err)
+		log.Fatalf("Error occurred upgrading chart: %v", err)
 	}
 
 	// Print release info
 	fmt.Printf("Release %s upgraded.\n", rslt.Name)
 }
 
+func poc_helm_uninstall() {
+	namespace := "opensee-obs-agents"
+
+	kubeconfig := os.Getenv("KUBECONFIG")
+	if kubeconfig == "" {
+		kubeconfig = "/home/huo/.kube/config"
+	}
+
+	actionConfig, err := newActionConfig(kubeconfig, namespace)
+	if err != nil {
+		log.Fatalf("Error occurred initializing Helm: %v", err)
+	}
+
+	client := action.NewUninstall(actionConfig)
+	client.DeletionPropagation = "foreground"
+
+	rslt, err := client.Run("obs")
+	if err != nil {
+		log.Fatalf("Error occurred installing chart: %v", err)
+	}
+
+	fmt.Printf("Release %s uninstalled.\n", rslt.Release.Name)
+}
+
 func main() {
-	poc_helm_upgrade(true)
+	poc_helm_uninstall()
+	//poc_helm_upgrade(true)
 	//poc_helm_install()
 	//poc_helm_template()
 }
