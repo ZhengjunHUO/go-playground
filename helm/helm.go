@@ -55,8 +55,9 @@ func poc_helm_template() {
 	}
 
 	userValues := chartutil.Values{
-		"environmentName": "localtest",
-		"namespace":       "opensee-obs-agents",
+		"environmentName":      "localtest",
+		"namespace":            "opensee-obs-agents",
+		"disableIntrospection": true,
 		"image": map[string]interface{}{
 			"repository": "otel/opentelemetry-collector-contrib",
 			"tag":        "0.97.0",
@@ -79,15 +80,28 @@ func poc_helm_template() {
 		},
 		"otelClickhouseAgent": map[string]interface{}{
 			"enabled": true,
+			"watchedComponents": map[string]interface{}{
+				"shardsCount":   2,
+				"replicasCount": 2,
+			},
 		},
 		"otelKeeperAgent": map[string]interface{}{
 			"enabled": true,
+			"watchedComponents": map[string]interface{}{
+				"stsCount": 3,
+			},
 		},
 		"otelPostgresqlAgent": map[string]interface{}{
 			"enabled": true,
+			"watchedComponents": map[string]interface{}{
+				"stsCount": 2,
+			},
 		},
 		"otelCalculatorAgent": map[string]interface{}{
 			"enabled": true,
+			"watchedComponents": map[string]interface{}{
+				"stsCount": 4,
+			},
 		},
 	}
 
@@ -126,7 +140,7 @@ func poc_helm_install() {
 	chartPath := "./helm-chart"
 
 	// Load user provided values from file
-	userValuesPath := "./helm-chart/examples/minimal.yaml"
+	userValuesPath := "./helm-chart/examples/nolookup.yaml"
 	userValues, err := chartutil.ReadValuesFile(userValuesPath)
 	if err != nil {
 		fmt.Println("Error occurred loading values:", err)
@@ -143,14 +157,14 @@ func poc_helm_install() {
 		log.Fatalf("Error occurred initializing Helm: %v", err)
 	}
 
-	// Create install action
-	install := action.NewInstall(actionConfig)
-	install.ReleaseName = "obs"
-	install.Namespace = namespace
-	install.CreateNamespace = true
+	// Create client action
+	client := action.NewInstall(actionConfig)
+	client.ReleaseName = "obs"
+	client.Namespace = namespace
+	client.CreateNamespace = true
 
 	// Load chart
-	chartRef, err := install.ChartPathOptions.LocateChart(chartPath, cli.New())
+	chartRef, err := client.ChartPathOptions.LocateChart(chartPath, cli.New())
 	if err != nil {
 		log.Fatalf("Error occurred locating chart: %v", err)
 	}
@@ -168,15 +182,72 @@ func poc_helm_install() {
 	}
 
 	// Install chart
-	rslt, err := install.Run(chart, coalescedValues)
+	rslt, err := client.Run(chart, coalescedValues)
 	if err != nil {
 		log.Fatalf("Error occurred installing chart: %v", err)
 	}
 
 	// Print release info
-	fmt.Printf("Release installed: %s\n", rslt.Name)
+	fmt.Printf("Release [%s] installed\n", rslt.Name)
+}
+
+func poc_helm_upgrade(withInstall bool) {
+	namespace := "opensee-obs-agents"
+	chartPath := "./helm-chart"
+
+	// Load user provided values from file
+	userValuesPath := "./helm-chart/examples/nolookup.yaml"
+	userValues, err := chartutil.ReadValuesFile(userValuesPath)
+	if err != nil {
+		fmt.Println("Error occurred loading values:", err)
+		os.Exit(1)
+	}
+
+	kubeconfig := os.Getenv("KUBECONFIG")
+	if kubeconfig == "" {
+		kubeconfig = "/home/huo/.kube/config"
+	}
+
+	actionConfig, err := newActionConfig(kubeconfig, namespace)
+	if err != nil {
+		log.Fatalf("Error occurred initializing Helm: %v", err)
+	}
+
+	// Create client action
+	client := action.NewUpgrade(actionConfig)
+	client.Namespace = namespace
+	client.Install = withInstall
+
+	// Load chart
+	chartRef, err := client.ChartPathOptions.LocateChart(chartPath, cli.New())
+	if err != nil {
+		log.Fatalf("Error occurred locating chart: %v", err)
+	}
+
+	chart, err := loader.Load(chartRef)
+	if err != nil {
+		fmt.Println("Error occurred loading helm chart:", err)
+		os.Exit(1)
+	}
+
+	// Prepare values
+	coalescedValues, err := chartutil.CoalesceValues(chart, userValues)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Install chart
+	rslt, err := client.Run("obs", chart, coalescedValues)
+	if err != nil {
+		log.Fatalf("Error occurred installing chart: %v", err)
+	}
+
+	// Print release info
+	fmt.Printf("Release %s upgraded.\n", rslt.Name)
 }
 
 func main() {
-	poc_helm_install()
+	poc_helm_upgrade(true)
+	//poc_helm_install()
+	//poc_helm_template()
 }
