@@ -191,7 +191,7 @@ func poc_helm_install() {
 	fmt.Printf("Release [%s] installed\n", rslt.Name)
 }
 
-func poc_helm_upgrade(withInstall bool) {
+func poc_helm_upgrade() {
 	namespace := "opensee-obs-agents"
 	chartPath := "./helm-chart"
 
@@ -216,7 +216,6 @@ func poc_helm_upgrade(withInstall bool) {
 	// Create client action
 	client := action.NewUpgrade(actionConfig)
 	client.Namespace = namespace
-	client.Install = withInstall
 
 	// Load chart
 	chartRef, err := client.ChartPathOptions.LocateChart(chartPath, cli.New())
@@ -270,9 +269,35 @@ func poc_helm_uninstall() {
 	fmt.Printf("Release %s uninstalled.\n", rslt.Release.Name)
 }
 
+func poc_helm_status() {
+	namespace := "opensee-obs-agents"
+
+	kubeconfig := os.Getenv("KUBECONFIG")
+	if kubeconfig == "" {
+		kubeconfig = "/home/huo/.kube/config"
+	}
+
+	actionConfig, err := newActionConfig(kubeconfig, namespace)
+	if err != nil {
+		log.Fatalf("Error occurred initializing Helm: %v", err)
+	}
+
+	client := action.NewStatus(actionConfig)
+	client.ShowResources = true
+
+	rslt, err := client.Run("obs")
+	if err != nil {
+		log.Fatalf("Error occurred calling status on chart: %v", err)
+	}
+
+	fmt.Printf("[Status]: \nNAME: %s\nLAST DEPLOYED: %v\nNAMESPACE: %s\nSTATUS: %v\nREVISION: %v\n", rslt.Name, rslt.Info.LastDeployed, rslt.Namespace, rslt.Info.Status, rslt.Version)
+	//fmt.Printf("%v\n", rslt.Info.Resources)
+}
+
 func main() {
-	poc_helm_uninstall()
-	//poc_helm_upgrade(true)
-	//poc_helm_install()
 	//poc_helm_template()
+	//poc_helm_install()
+	//poc_helm_upgrade()
+	poc_helm_status()
+	//poc_helm_uninstall()
 }
