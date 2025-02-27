@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
+	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/engine"
@@ -54,66 +56,13 @@ func poc_helm_template() {
 		"Service": "Helm",
 	}
 
-	userValues := chartutil.Values{
-		"environmentName":      "localtest",
-		"namespace":            "opensee-obs-agents",
-		"disableIntrospection": true,
-		"image": map[string]interface{}{
-			"repository": "otel/opentelemetry-collector-contrib",
-			"tag":        "0.97.0",
-		},
-		"imagePullSecrets": []map[string]interface{}{
-			map[string]interface{}{
-				"name": "regcred",
-			},
-		},
-		"centralTelemetry": map[string]interface{}{
-			"endpoint": "https://foo.bar.com",
-			"insecure": false,
-			"headers": map[string]interface{}{
-				"authorization": "Basic SECRET",
-			},
-			"useHttpExporter": true,
-		},
-		"otelEdgeServer": map[string]interface{}{
-			"enabled": true,
-		},
-		"otelClickhouseAgent": map[string]interface{}{
-			"enabled": true,
-			"watchedComponents": map[string]interface{}{
-				"shardsCount":   2,
-				"replicasCount": 2,
-			},
-		},
-		"otelKeeperAgent": map[string]interface{}{
-			"enabled": true,
-			"watchedComponents": map[string]interface{}{
-				"stsCount": 3,
-			},
-		},
-		"otelPostgresqlAgent": map[string]interface{}{
-			"enabled": true,
-			"watchedComponents": map[string]interface{}{
-				"stsCount": 2,
-			},
-		},
-		"otelCalculatorAgent": map[string]interface{}{
-			"enabled": true,
-			"watchedComponents": map[string]interface{}{
-				"stsCount": 4,
-			},
-		},
-	}
-
 	// Load user provided values from file
-	/*
-		userValuesPath := "./helm-chart/examples/minimal.yaml"
-		userValues, err := chartutil.ReadValuesFile(userValuesPath)
-		if err != nil {
-			fmt.Println("Error occurred loading values:", err)
-			os.Exit(1)
-		}
-	*/
+	userValuesPath := "./helm-chart/examples/nolookup.yaml"
+	userValues, err := chartutil.ReadValuesFile(userValuesPath)
+	if err != nil {
+		fmt.Println("Error occurred loading values:", err)
+		os.Exit(1)
+	}
 
 	rslt := do_helm_template(chartPath, userValues, release)
 	for name, content := range rslt {
@@ -294,10 +243,228 @@ func poc_helm_status() {
 	//fmt.Printf("%v\n", rslt.Info.Resources)
 }
 
+type HelmEngine struct {
+	namespace    string
+	releaseName  string
+	actionConfig *action.Configuration
+	chart        *chart.Chart
+	userValues   chartutil.Values
+}
+
+type HelmEngineOption func(*HelmEngine)
+
+func withHelmNamespace(namespace string) HelmEngineOption {
+	return func(h *HelmEngine) {
+		h.namespace = namespace
+	}
+}
+
+func withHelmReleaseName(releaseName string) HelmEngineOption {
+	return func(h *HelmEngine) {
+		h.releaseName = releaseName
+	}
+}
+
+func withHelmActionConfig(kubeconfigPath string) HelmEngineOption {
+	return func(h *HelmEngine) {
+		actionConfig, err := newActionConfig(kubeconfigPath, h.namespace)
+		if err != nil {
+			log.Fatalf("Error occurred initializing Helm: %v\n", err)
+		}
+
+		h.actionConfig = actionConfig
+	}
+}
+
+func withHelmChart(chartPath string) HelmEngineOption {
+	return func(h *HelmEngine) {
+		chart, err := loader.Load(chartPath)
+		if err != nil {
+			log.Fatalf("Error occurred loading helm chart: %v\n", err)
+		}
+
+		h.chart = chart
+	}
+}
+
+func withHelmUserValuesFromFile(userValuesPath string) HelmEngineOption {
+	return func(h *HelmEngine) {
+		userValues, err := chartutil.ReadValuesFile(userValuesPath)
+		if err != nil {
+			log.Fatalf("Error occurred loading values: %v\n", err)
+		}
+
+		h.userValues = userValues
+	}
+}
+
+func withHelmUserValues(userValues chartutil.Values) HelmEngineOption {
+	return func(h *HelmEngine) {
+		h.userValues = userValues
+	}
+}
+
+func NewHelmEngine(namespace, releaseName string, hops ...HelmEngineOption) *HelmEngine {
+	helm := &HelmEngine{
+		namespace:   namespace,
+		releaseName: releaseName,
+	}
+
+	for _, f := range hops {
+		f(helm)
+	}
+
+	return helm
+}
+
+func (h *HelmEngine) install() {
+	// Create client action
+	client := action.NewInstall(h.actionConfig)
+	client.ReleaseName = h.releaseName
+	client.Namespace = h.namespace
+	client.CreateNamespace = true
+
+	// Prepare values
+	coalescedValues, err := chartutil.CoalesceValues(h.chart, h.userValues)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Install chart
+	rslt, err := client.Run(h.chart, coalescedValues)
+	if err != nil {
+		log.Fatalf("Error occurred installing release: %v", err)
+	}
+
+	// Print release info
+	fmt.Printf("Release [%s] installed\n", rslt.Name)
+}
+
+func (h *HelmEngine) upgrade() {
+	// Create client action
+	client := action.NewUpgrade(h.actionConfig)
+	client.Namespace = h.namespace
+
+	// Prepare values
+	coalescedValues, err := chartutil.CoalesceValues(h.chart, h.userValues)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Upgrade chart
+	rslt, err := client.Run(h.releaseName, h.chart, coalescedValues)
+	if err != nil {
+		log.Fatalf("Error occurred upgrading release: %v", err)
+	}
+
+	// Print release info
+	fmt.Printf("Release %s upgraded.\n", rslt.Name)
+}
+
+func (h *HelmEngine) uninstall() {
+	client := action.NewUninstall(h.actionConfig)
+	client.DeletionPropagation = "foreground"
+
+	rslt, err := client.Run(h.releaseName)
+	if err != nil {
+		log.Fatalf("Error occurred uninstalling release: %v", err)
+	}
+
+	fmt.Printf("Release %s uninstalled.\n", rslt.Release.Name)
+}
+
+func (h *HelmEngine) status() {
+	client := action.NewStatus(h.actionConfig)
+	client.ShowResources = true
+
+	rslt, err := client.Run(h.releaseName)
+	if err != nil {
+		log.Fatalf("Error occurred checking status on release: %v", err)
+	}
+
+	fmt.Printf("[Status]: \nNAME: %s\nLAST DEPLOYED: %v\nNAMESPACE: %s\nSTATUS: %v\nREVISION: %v\n", rslt.Name, rslt.Info.LastDeployed, rslt.Namespace, rslt.Info.Status, rslt.Version)
+}
+
+func (h *HelmEngine) updateUserValues(userValues chartutil.Values) {
+	h.userValues = userValues
+}
+
 func main() {
+	userValues := chartutil.Values{
+		"environmentName":      "localtest",
+		"namespace":            "opensee-obs-agents",
+		"disableIntrospection": true,
+		"image": map[string]interface{}{
+			"repository": "otel/opentelemetry-collector-contrib",
+			"tag":        "0.97.0",
+		},
+		"imagePullSecrets": []map[string]interface{}{
+			map[string]interface{}{
+				"name": "regcred",
+			},
+		},
+		"centralTelemetry": map[string]interface{}{
+			"endpoint": "https://foo.bar.com",
+			"insecure": false,
+			"headers": map[string]interface{}{
+				"authorization": "Basic SECRET",
+			},
+			"useHttpExporter": true,
+		},
+		"otelEdgeServer": map[string]interface{}{
+			"enabled": true,
+		},
+		"otelClickhouseAgent": map[string]interface{}{
+			"enabled": true,
+			"watchedComponents": map[string]interface{}{
+				"shardsCount":   2,
+				"replicasCount": 2,
+			},
+		},
+		"otelKeeperAgent": map[string]interface{}{
+			"enabled": true,
+			"watchedComponents": map[string]interface{}{
+				"stsCount": 3,
+			},
+		},
+		"otelPostgresqlAgent": map[string]interface{}{
+			"enabled": true,
+			"watchedComponents": map[string]interface{}{
+				"stsCount": 2,
+			},
+		},
+		"otelCalculatorAgent": map[string]interface{}{
+			"enabled": true,
+			"watchedComponents": map[string]interface{}{
+				"stsCount": 4,
+			},
+		},
+	}
+
+	helm := NewHelmEngine("opensee-obs-agents", "obs",
+		withHelmActionConfig("/home/huo/.kube/config"),
+		withHelmChart("./helm-chart"),
+		withHelmUserValues(userValues))
+
+	helm.install()
+	time.Sleep(60*time.Second)
+	helm.status()
+
+	userValuesPath := "./helm-chart/examples/nolookup.yaml"
+	newUserValues, err := chartutil.ReadValuesFile(userValuesPath)
+	if err != nil {
+		fmt.Println("Error occurred loading values:", err)
+		os.Exit(1)
+	}
+
+	helm.updateUserValues(newUserValues)
+	helm.upgrade()
+	time.Sleep(60*time.Second)
+	helm.status()
+	helm.uninstall()
 	//poc_helm_template()
 	//poc_helm_install()
 	//poc_helm_upgrade()
-	poc_helm_status()
+	//poc_helm_status()
 	//poc_helm_uninstall()
 }
