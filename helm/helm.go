@@ -317,7 +317,7 @@ func NewHelmEngine(namespace, releaseName string, hops ...HelmEngineOption) *Hel
 	return helm
 }
 
-func (h *HelmEngine) install() {
+func (h *HelmEngine) Install() {
 	// Create client action
 	client := action.NewInstall(h.actionConfig)
 	client.ReleaseName = h.releaseName
@@ -333,14 +333,14 @@ func (h *HelmEngine) install() {
 	// Install chart
 	rslt, err := client.Run(h.chart, coalescedValues)
 	if err != nil {
-		log.Fatalf("Error occurred installing release: %v", err)
+		log.Fatalf("Error occurred installing release %s: %v", h.releaseName, err)
 	}
 
 	// Print release info
 	fmt.Printf("Release [%s] installed\n", rslt.Name)
 }
 
-func (h *HelmEngine) upgrade() {
+func (h *HelmEngine) Upgrade() {
 	// Create client action
 	client := action.NewUpgrade(h.actionConfig)
 	client.Namespace = h.namespace
@@ -354,38 +354,38 @@ func (h *HelmEngine) upgrade() {
 	// Upgrade chart
 	rslt, err := client.Run(h.releaseName, h.chart, coalescedValues)
 	if err != nil {
-		log.Fatalf("Error occurred upgrading release: %v", err)
+		log.Fatalf("Error occurred upgrading release %s: %v", h.releaseName, err)
 	}
 
 	// Print release info
 	fmt.Printf("Release %s upgraded.\n", rslt.Name)
 }
 
-func (h *HelmEngine) uninstall() {
+func (h *HelmEngine) Uninstall() {
 	client := action.NewUninstall(h.actionConfig)
 	client.DeletionPropagation = "foreground"
 
 	rslt, err := client.Run(h.releaseName)
 	if err != nil {
-		log.Fatalf("Error occurred uninstalling release: %v", err)
+		log.Fatalf("Error occurred uninstalling release %s: %v", h.releaseName, err)
 	}
 
 	fmt.Printf("Release %s uninstalled.\n", rslt.Release.Name)
 }
 
-func (h *HelmEngine) status() {
+func (h *HelmEngine) Status() {
 	client := action.NewStatus(h.actionConfig)
 	client.ShowResources = true
 
 	rslt, err := client.Run(h.releaseName)
 	if err != nil {
-		log.Fatalf("Error occurred checking status on release: %v", err)
+		log.Fatalf("Error occurred checking status on release %s: %v", h.releaseName, err)
 	}
 
 	fmt.Printf("[Status]: \nNAME: %s\nLAST DEPLOYED: %v\nNAMESPACE: %s\nSTATUS: %v\nREVISION: %v\n", rslt.Name, rslt.Info.LastDeployed, rslt.Namespace, rslt.Info.Status, rslt.Version)
 }
 
-func (h *HelmEngine) updateUserValues(userValues chartutil.Values) {
+func (h *HelmEngine) UpdateUserValues(userValues chartutil.Values) {
 	h.userValues = userValues
 }
 
@@ -446,9 +446,9 @@ func main() {
 		withHelmChart("./helm-chart"),
 		withHelmUserValues(userValues))
 
-	helm.install()
+	helm.Install()
 	time.Sleep(60*time.Second)
-	helm.status()
+	helm.Status()
 
 	userValuesPath := "./helm-chart/examples/nolookup.yaml"
 	newUserValues, err := chartutil.ReadValuesFile(userValuesPath)
@@ -457,11 +457,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	helm.updateUserValues(newUserValues)
-	helm.upgrade()
+	helm.UpdateUserValues(newUserValues)
+	helm.Upgrade()
 	time.Sleep(60*time.Second)
-	helm.status()
-	helm.uninstall()
+	helm.Status()
+	helm.Uninstall()
 	//poc_helm_template()
 	//poc_helm_install()
 	//poc_helm_upgrade()
