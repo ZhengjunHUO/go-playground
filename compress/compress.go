@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"compress/gzip"
 	"fmt"
 	"io"
@@ -17,11 +18,65 @@ const (
 	//pathToCompress     = "compressed/grafana-7.3.7.tar.gz"
 	pathToCompress     = "compressed/ingress.tgz"
 	folderToDecompress = "decompressed"
+	zipped_file        = "compressed/source_calculator.zip"
+	pathToUnzip        = "unzipped"
 )
 
 func main() {
 	//compressTarGz()
-	decompressTarGz(pathToCompress, folderToDecompress)
+	//decompressTarGz(pathToCompress, folderToDecompress)
+	unzip(zipped_file, pathToUnzip)
+}
+
+func unzip(zipPath, targetPath string) {
+	var zr *zip.ReadCloser
+	var err error
+
+	if zr, err = zip.OpenReader(zipPath); err != nil {
+		log.Fatalln("Error occurred opening zip reader: ", err)
+	}
+	defer zr.Close()
+
+	if err := os.MkdirAll(targetPath, 0755); err != nil {
+		log.Fatalln(err)
+	}
+
+	for _, file := range zr.File {
+		pathToFile := filepath.Join(targetPath, file.Name)
+
+		if !strings.HasPrefix(pathToFile, filepath.Clean(targetPath)+string(os.PathSeparator)) {
+			log.Fatalln("Illegal file path:", pathToFile)
+		}
+
+		if file.FileInfo().IsDir() {
+			if err := os.MkdirAll(pathToFile, file.Mode()); err != nil {
+				log.Fatalln(err)
+			}
+			continue
+		}
+
+		if err := os.MkdirAll(filepath.Dir(pathToFile), 0755); err != nil {
+			log.Fatalln(err)
+		}
+
+		outFile, err := os.OpenFile(pathToFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		rc, err := file.Open()
+		if err != nil {
+			outFile.Close()
+			log.Fatalln(err)
+		}
+
+		_, err = io.Copy(outFile, rc)
+		outFile.Close()
+		rc.Close()
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}
 }
 
 func decompressTarGz(tarPath, targetPath string) {
