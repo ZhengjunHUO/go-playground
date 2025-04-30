@@ -24,11 +24,23 @@ const (
 
 func main() {
 	//CompressTarGz()
-	DecompressTarGz(pathToCompress, folderToDecompress)
-	//Unzip(zipped_file, pathToUnzip)
+	DecompressTarGz(pathToCompress, folderToDecompress, true)
+	Unzip(zipped_file, pathToUnzip, true)
 }
 
-func Unzip(zipPath, targetPath string) error {
+func stripTopLevelPath(path string, doStrip bool) string {
+	if doStrip {
+		parts := strings.Split(path, string(filepath.Separator))
+
+		if len(parts) > 1 {
+			return filepath.Join(parts[1:]...)
+		}
+	}
+
+	return path
+}
+
+func Unzip(zipPath, targetPath string, doStrip bool) error {
 	var zr *zip.ReadCloser
 	var err error
 
@@ -42,8 +54,7 @@ func Unzip(zipPath, targetPath string) error {
 	}
 
 	for _, file := range zr.File {
-		pathToFile := filepath.Join(targetPath, file.Name)
-
+		pathToFile := fmt.Sprintf("%s/%s", targetPath, stripTopLevelPath(file.Name, doStrip))
 		if !strings.HasPrefix(pathToFile, filepath.Clean(targetPath)+string(os.PathSeparator)) {
 			return fmt.Errorf("illegal file path: %v", pathToFile)
 		}
@@ -81,7 +92,7 @@ func Unzip(zipPath, targetPath string) error {
 	return nil
 }
 
-func DecompressTarGz(tarPath, targetPath string) error {
+func DecompressTarGz(tarPath, targetPath string, doStrip bool) error {
 	var compressed *os.File
 	var gzr *gzip.Reader
 	var tr *tar.Reader
@@ -111,7 +122,7 @@ func DecompressTarGz(tarPath, targetPath string) error {
 			return fmt.Errorf("error occurred reading package with tar reader: %v", err)
 		}
 
-		name := fmt.Sprintf("%s/%s", targetPath, header.Name)
+		name := fmt.Sprintf("%s/%s", targetPath, stripTopLevelPath(header.Name, doStrip))
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(name, os.FileMode(header.Mode)); err != nil {
@@ -129,7 +140,6 @@ func DecompressTarGz(tarPath, targetPath string) error {
 				return fmt.Errorf("error occurred making dir %v: %v", filepath.Dir(name), err)
 			}
 
-			//fmt.Printf("%s type mode: %v\n", name, header.Mode)
 			outFile, err := os.Create(name)
 			if err != nil {
 				return fmt.Errorf("error occurred creating file %v: %v", name, err)
