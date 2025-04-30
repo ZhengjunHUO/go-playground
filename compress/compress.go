@@ -6,7 +6,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -16,83 +15,86 @@ import (
 const (
 	pathToInput = "input/toxic.csv"
 	//pathToCompress     = "compressed/grafana-7.3.7.tar.gz"
-	pathToCompress     = "compressed/ingress.tgz"
+	//pathToCompress     = "compressed/ingress.tgz"
+	pathToCompress     = "compressed/helm-v3.17.0-linux-amd64.tar"
 	folderToDecompress = "decompressed"
 	zipped_file        = "compressed/source_calculator.zip"
 	pathToUnzip        = "unzipped"
 )
 
 func main() {
-	//compressTarGz()
-	//decompressTarGz(pathToCompress, folderToDecompress)
-	unzip(zipped_file, pathToUnzip)
+	//CompressTarGz()
+	DecompressTarGz(pathToCompress, folderToDecompress)
+	//Unzip(zipped_file, pathToUnzip)
 }
 
-func unzip(zipPath, targetPath string) {
+func Unzip(zipPath, targetPath string) error {
 	var zr *zip.ReadCloser
 	var err error
 
 	if zr, err = zip.OpenReader(zipPath); err != nil {
-		log.Fatalln("Error occurred opening zip reader: ", err)
+		return fmt.Errorf("error occurred opening zip reader: %v", err)
 	}
 	defer zr.Close()
 
 	if err := os.MkdirAll(targetPath, 0755); err != nil {
-		log.Fatalln(err)
+		return fmt.Errorf("error occurred mkdir %s: %v", targetPath, err)
 	}
 
 	for _, file := range zr.File {
 		pathToFile := filepath.Join(targetPath, file.Name)
 
 		if !strings.HasPrefix(pathToFile, filepath.Clean(targetPath)+string(os.PathSeparator)) {
-			log.Fatalln("Illegal file path:", pathToFile)
+			return fmt.Errorf("illegal file path: %v", pathToFile)
 		}
 
 		if file.FileInfo().IsDir() {
 			if err := os.MkdirAll(pathToFile, file.Mode()); err != nil {
-				log.Fatalln(err)
+				return fmt.Errorf("error occurred mkdir %s: %v", pathToFile, err)
 			}
 			continue
 		}
 
 		if err := os.MkdirAll(filepath.Dir(pathToFile), 0755); err != nil {
-			log.Fatalln(err)
+			return fmt.Errorf("error occurred mkdir %s: %v", filepath.Dir(pathToFile), err)
 		}
 
 		outFile, err := os.OpenFile(pathToFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
 		if err != nil {
-			log.Fatalln(err)
+			return fmt.Errorf("error occurred opening %v: %v", outFile, err)
 		}
 
 		rc, err := file.Open()
 		if err != nil {
 			outFile.Close()
-			log.Fatalln(err)
+			return fmt.Errorf("error occurred opening reader for file %v: %v", file, err)
 		}
 
 		_, err = io.Copy(outFile, rc)
 		outFile.Close()
 		rc.Close()
 		if err != nil {
-			log.Fatalln(err)
+			return fmt.Errorf("error occurred dumping to file %v: %v", outFile, err)
 		}
 	}
+
+	return nil
 }
 
-func decompressTarGz(tarPath, targetPath string) {
+func DecompressTarGz(tarPath, targetPath string) error {
 	var compressed *os.File
 	var gzr *gzip.Reader
 	var tr *tar.Reader
 	var err error
 
 	if compressed, err = os.Open(tarPath); err != nil {
-		log.Fatalln(err)
+		return fmt.Errorf("error occurred opening tar file %v: %v", compressed, err)
 	}
 	defer compressed.Close()
 
 	if strings.HasSuffix(tarPath, ".gz") || strings.HasSuffix(tarPath, ".tgz") {
 		if gzr, err = gzip.NewReader(compressed); err != nil {
-			log.Fatalln(err)
+			return fmt.Errorf("error occurred gz reader: %v", err)
 		}
 		defer gzr.Close()
 		tr = tar.NewReader(gzr)
@@ -106,55 +108,62 @@ func decompressTarGz(tarPath, targetPath string) {
 			break
 		}
 		if err != nil {
-			log.Fatalln(err)
+			return fmt.Errorf("error occurred reading package with tar reader: %v", err)
 		}
 
 		name := fmt.Sprintf("%s/%s", targetPath, header.Name)
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(name, os.FileMode(header.Mode)); err != nil {
-				log.Fatalln("Error occurred making dir: ", err)
+				return fmt.Errorf("error occurred making dir %v: %v", name, err)
+			}
+		case tar.TypeSymlink:
+			os.Symlink(header.Linkname, name)
+		case tar.TypeLink:
+			linkTarget := filepath.Join(targetPath, header.Linkname)
+			if err := os.Link(linkTarget, name); err != nil {
+				return fmt.Errorf("error occurred making hardlink %v: %v", name, err)
 			}
 		case tar.TypeReg:
 			if err := os.MkdirAll(filepath.Dir(name), 0755); err != nil {
-				log.Fatalln("Error occurred making dir: ", err)
+				return fmt.Errorf("error occurred making dir %v: %v", filepath.Dir(name), err)
 			}
 
 			//fmt.Printf("%s type mode: %v\n", name, header.Mode)
 			outFile, err := os.Create(name)
 			if err != nil {
-				log.Fatalln("Error occurred creating file: ", err)
+				return fmt.Errorf("error occurred creating file %v: %v", name, err)
 			}
 			defer outFile.Close()
 
 			if _, err := io.Copy(outFile, tr); err != nil {
-				log.Fatalln("Error occurred dumping data: ", err)
+				return fmt.Errorf("error occurred dumping data to %v: %v", outFile, err)
 			}
 
 			if err := os.Chmod(name, os.FileMode(header.Mode)); err != nil {
-				log.Fatalln("Error occurred chmoding file ", name, err)
+				return fmt.Errorf("error occurred chmoding file %v: %v", name, err)
 			}
-		case tar.TypeSymlink:
-			os.Symlink(header.Linkname, name)
 		default:
-			log.Fatalf("%v : Unknown type: %v\n", name, header.Typeflag)
+			return fmt.Errorf("%v : Unknown type: %v", name, header.Typeflag)
 		}
 	}
+
+	return nil
 }
 
-func compressTarGz() {
+func CompressTarGz() error {
 	var target *os.File
 	var buffer []byte
 	var err error
 	var gzw *gzip.Writer
 
 	if target, err = os.OpenFile(pathToCompress, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644); err != nil {
-		log.Fatalln(err)
+		return err
 	}
 	defer target.Close()
 
 	if gzw, err = gzip.NewWriterLevel(target, gzip.BestCompression); err != nil {
-		log.Fatalln(err)
+		return err
 	}
 	defer gzw.Close()
 
@@ -162,7 +171,7 @@ func compressTarGz() {
 	defer tw.Close()
 
 	if buffer, err = os.ReadFile(pathToInput); err != nil {
-		log.Fatalln(err)
+		return err
 	}
 
 	if buffer != nil {
@@ -178,4 +187,6 @@ func compressTarGz() {
 			println(err)
 		}
 	}
+
+	return nil
 }
