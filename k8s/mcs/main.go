@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -10,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
@@ -26,6 +28,8 @@ func main() {
 		kubeconfig string
 		namespace  string
 		name       string
+		action     string
+		labels     string
 	)
 
 	if home := homedir.HomeDir(); home != "" {
@@ -35,6 +39,8 @@ func main() {
 	}
 	flag.StringVar(&namespace, "namespace", "default", "namespace of the ServiceExport")
 	flag.StringVar(&name, "name", "", "name of the service to export (required)")
+	flag.StringVar(&action, "action", "apply", "action to perform: apply, delete, patch")
+	flag.StringVar(&labels, "labels", "", `JSON labels for patch action, e.g. '{"env":"prod"}'`)
 	flag.Parse()
 
 	if name == "" {
@@ -55,28 +61,74 @@ func main() {
 		os.Exit(1)
 	}
 
-	obj := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "multicluster.x-k8s.io/v1alpha1",
-			"kind":       "ServiceExport",
-			"metadata": map[string]interface{}{
-				"name":      name,
-				"namespace": namespace,
-			},
-		},
-	}
+	res := dynClient.Resource(serviceExportGVR).Namespace(namespace)
 
-	result, err := dynClient.Resource(serviceExportGVR).
-		Namespace(namespace).
-		Apply(context.Background(), name, obj, metav1.ApplyOptions{
+	switch action {
+	case "apply":
+		obj := &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "multicluster.x-k8s.io/v1alpha1",
+				"kind":       "ServiceExport",
+				"metadata": map[string]interface{}{
+					"name":      name,
+					"namespace": namespace,
+				},
+			},
+		}
+		result, err := res.Apply(context.Background(), name, obj, metav1.ApplyOptions{
 			FieldManager: "serviceexport-deployer",
 			Force:        true,
 		})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error applying ServiceExport: %v\n", err)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error applying ServiceExport: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("ServiceExport %s/%s applied (resourceVersion: %s)\n",
+			result.GetNamespace(), result.GetName(), result.GetResourceVersion())
+
+	case "get":
+		result, err := res.Get(context.Background(), name, metav1.GetOptions{})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ServiceExport %s/%s not found: %v\n", namespace, name, err)
+			os.Exit(1)
+		}
+		fmt.Printf("ServiceExport %s/%s exists (resourceVersion: %s)\n",
+			result.GetNamespace(), result.GetName(), result.GetResourceVersion())
+
+	case "delete":
+		err := res.Delete(context.Background(), name, metav1.DeleteOptions{})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error deleting ServiceExport: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("ServiceExport %s/%s deleted\n", namespace, name)
+
+	case "patch":
+		if labels == "" {
+			fmt.Fprintln(os.Stderr, "error: --labels is required for patch action")
+			os.Exit(1)
+		}
+		var labelMap map[string]string
+		if err := json.Unmarshal([]byte(labels), &labelMap); err != nil {
+			fmt.Fprintf(os.Stderr, "error parsing --labels JSON: %v\n", err)
+			os.Exit(1)
+		}
+		patch := map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"labels": labelMap,
+			},
+		}
+		patchBytes, _ := json.Marshal(patch)
+		result, err := res.Patch(context.Background(), name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error patching ServiceExport: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("ServiceExport %s/%s patched (resourceVersion: %s)\n",
+			result.GetNamespace(), result.GetName(), result.GetResourceVersion())
+
+	default:
+		fmt.Fprintf(os.Stderr, "unknown action %q, use: apply, get, delete, patch\n", action)
 		os.Exit(1)
 	}
-
-	fmt.Printf("ServiceExport %s/%s applied (resourceVersion: %s)\n",
-		result.GetNamespace(), result.GetName(), result.GetResourceVersion())
 }
